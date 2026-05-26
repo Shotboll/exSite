@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RepairRequestsBusinessLogic\RepairRequestsBusinessLogic.csproj" />
     <ProjectReference Include="..\RepairRequestsContracts\RepairRequestsContracts.csproj" />
     <ProjectReference Include="..\RepairRequestsDataModels\RepairRequestsDataModels.csproj" />
   </ItemGroup>

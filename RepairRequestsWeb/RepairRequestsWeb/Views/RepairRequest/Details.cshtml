@@ -1,0 +1,70 @@
+﻿@model RepairRequestViewModel
+
+@{
+    ViewData["Title"] = "Детали заявки";
+}
+
+<h2 class="mb-3">Детали заявки</h2>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Название</th>
+        <td>@Model.Title</td>
+    </tr>
+    <tr>
+        <th>Описание</th>
+        <td>@Model.Description</td>
+    </tr>
+    <tr>
+        <th>Пользователь</th>
+        <td>@Model.UserName</td>
+    </tr>
+    <tr>
+        <th>Тип техники</th>
+        <td>@Model.DeviceTypeName</td>
+    </tr>
+    <tr>
+        <th>Статус</th>
+        <td>@Model.Status</td>
+    </tr>
+    <tr>
+        <th>Дата создания</th>
+        <td>@Model.CreatedDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+    </tr>
+</table>
+
+<h4 class="mt-4">Услуги</h4>
+
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Услуга</th>
+            <th>Цена</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Services.Count == 0)
+        {
+            <tr>
+                <td colspan="2" class="text-center">Услуги не выбраны</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var service in Model.Services)
+            {
+                <tr>
+                    <td>@service.ServiceName</td>
+                    <td>@service.ServicePrice.ToString("0.00")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+<p>
+    <strong>Итоговая стоимость:</strong> @Model.TotalPrice.ToString("0.00")
+</p>
+
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Изменить</a>
+<a asp-action="Index" class="btn btn-secondary">Назад</a>

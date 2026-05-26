@@ -1,0 +1,49 @@
+﻿@model RepairRequestViewModel
+
+@{
+    ViewData["Title"] = "Удаление заявки";
+}
+
+<h2 class="mb-3">Удаление заявки</h2>
+
+<div class="alert alert-warning">
+    Вы действительно хотите удалить эту заявку?
+</div>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Название</th>
+        <td>@Model.Title</td>
+    </tr>
+    <tr>
+        <th>Описание</th>
+        <td>@Model.Description</td>
+    </tr>
+    <tr>
+        <th>Пользователь</th>
+        <td>@Model.UserName</td>
+    </tr>
+    <tr>
+        <th>Тип техники</th>
+        <td>@Model.DeviceTypeName</td>
+    </tr>
+    <tr>
+        <th>Статус</th>
+        <td>@Model.Status</td>
+    </tr>
+    <tr>
+        <th>Итоговая стоимость</th>
+        <td>@Model.TotalPrice.ToString("0.00")</td>
+    </tr>
+</table>
+
+<form asp-action="DeleteConfirmed" method="post">
+    @Html.AntiForgeryToken()
+
+    <input type="hidden" name="id" value="@Model.Id" />
+
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Назад</a>
+</form>

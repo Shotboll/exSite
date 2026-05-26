@@ -1,0 +1,101 @@
+﻿@model List<ServiceViewModel>
+
+@{
+    ViewData["Title"] = "Услуги";
+
+    string? searchText = ViewBag.SearchText as string;
+    decimal? minPrice = ViewBag.MinPrice as decimal?;
+    decimal? maxPrice = ViewBag.MaxPrice as decimal?;
+
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int totalCount = ViewBag.TotalCount ?? 0;
+}
+
+<h2 class="mb-3">Услуги ремонта</h2>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["Message"]
+    </div>
+}
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-4">
+        <input type="text" name="searchText" value="@searchText" class="form-control" placeholder="Поиск по названию или описанию" />
+    </div>
+
+    <div class="col-6 col-md-2">
+        <input type="number" step="0.01" name="minPrice" value="@minPrice" class="form-control" placeholder="Цена от" />
+    </div>
+
+    <div class="col-6 col-md-2">
+        <input type="number" step="0.01" name="maxPrice" value="@maxPrice" class="form-control" placeholder="Цена до" />
+    </div>
+
+    <div class="col-12 col-md-4">
+        <button type="submit" class="btn btn-primary">Найти</button>
+        <a asp-action="Index" class="btn btn-secondary">Сбросить</a>
+        <a asp-action="Create" class="btn btn-success">Добавить</a>
+    </div>
+</form>
+
+<p>Всего записей: <strong>@totalCount</strong></p>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Описание</th>
+                <th>Цена</th>
+                <th style="width: 220px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="4" class="text-center">Услуги не найдены</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var service in Model)
+                {
+                    <tr>
+                        <td>@service.Name</td>
+                        <td>@service.Description</td>
+                        <td>@service.Price.ToString("0.00")</td>
+                        <td>
+                            <a asp-action="Edit" asp-route-id="@service.Id" class="btn btn-sm btn-warning">Изменить</a>
+                            <a asp-action="Delete" asp-route-id="@service.Id" class="btn btn-sm btn-danger">Удалить</a>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-page="@i"
+                       asp-route-searchText="@searchText"
+                       asp-route-minPrice="@minPrice"
+                       asp-route-maxPrice="@maxPrice">
+                        @i
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

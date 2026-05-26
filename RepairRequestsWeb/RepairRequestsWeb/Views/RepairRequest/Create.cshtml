@@ -1,0 +1,77 @@
+﻿@model RepairRequestBindingModel
+
+@{
+    ViewData["Title"] = "Добавление заявки";
+    var services = ViewBag.Services as List<ServiceViewModel> ?? new List<ServiceViewModel>();
+    bool isAdmin = ViewBag.IsAdmin ?? false;
+}
+
+<h2 class="mb-3">Добавление заявки</h2>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    @if (isAdmin)
+    {
+        <div class="mb-3">
+            <label asp-for="UserId" class="form-label">Пользователь</label>
+            <select asp-for="UserId" asp-items="ViewBag.Users" class="form-select">
+                <option value="">Выберите пользователя</option>
+            </select>
+            <span asp-validation-for="UserId" class="text-danger"></span>
+        </div>
+    }
+    else
+    {
+        <input type="hidden" asp-for="UserId" />
+    }
+
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label">Название</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label">Описание проблемы</label>
+        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="DeviceTypeId" class="form-label">Тип техники</label>
+        <select asp-for="DeviceTypeId" asp-items="ViewBag.DeviceTypes" class="form-select">
+            <option value="">Выберите тип техники</option>
+        </select>
+        <span asp-validation-for="DeviceTypeId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Услуги</label>
+
+        @foreach (var service in services)
+        {
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="checkbox"
+                       name="SelectedServiceIds"
+                       value="@service.Id"
+                       id="service_@service.Id"
+                       @(Model.SelectedServiceIds.Contains(service.Id) ? "checked" : "") />
+
+                <label class="form-check-label" for="service_@service.Id">
+                    @service.Name — @service.Price.ToString("0.00")
+                </label>
+            </div>
+        }
+    </div>
+
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a asp-action="Index" class="btn btn-secondary">Назад</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

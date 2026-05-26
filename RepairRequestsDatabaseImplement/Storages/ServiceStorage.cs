@@ -30,7 +30,8 @@ namespace RepairRequestsDatabaseImplement.Storages
 
         public List<ServiceViewModel> GetFilteredList(ServiceSearchModel model)
         {
-            var query = ApplyFilter(model);
+            IQueryable<Service> query = ApplyFilter(model)
+                .OrderBy(x => x.Name);
 
             if (model.Page.HasValue && model.PageSize.HasValue)
             {
@@ -40,7 +41,6 @@ namespace RepairRequestsDatabaseImplement.Storages
             }
 
             return query
-                .OrderBy(x => x.Name)
                 .Select(x => x.GetViewModel)
                 .ToList();
         }
@@ -64,9 +64,12 @@ namespace RepairRequestsDatabaseImplement.Storages
             return null;
         }
 
-        public int GetCount(ServiceSearchModel model)
+        public int GetCount(ServiceSearchModel? model)
         {
-            if (model == null) return _context.Services.Count();
+            if (model == null)
+            {
+                return _context.Services.Count();
+            }
 
             return ApplyFilter(model).Count();
         }

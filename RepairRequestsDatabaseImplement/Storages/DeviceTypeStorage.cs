@@ -38,7 +38,7 @@ namespace RepairRequestsDatabaseImplement.Storages
             }
             if (!string.IsNullOrWhiteSpace(model.Name))
             {
-                query = query.Where(x => x.Name == model.Name);
+                query = query.Where(x => x.Name.ToLower() == model.Name.ToLower());
             }
 
             return query

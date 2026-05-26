@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using RepairRequestsBusinessLogic.Services;
 using RepairRequestsDatabaseImplement.Models;
 using RepairRequestsDataModels.Enums;
 
@@ -34,7 +35,7 @@ namespace RepairRequestsDatabaseImplement.Database
                 {
                     Id = 1,
                     Login = "admin",
-                    PasswordHash = "admin",
+                    PasswordHash = PasswordService.getHash("admin"),
                     Name = "Администратор",
                     Role = UserRole.Администратор
                 },
@@ -42,7 +43,7 @@ namespace RepairRequestsDatabaseImplement.Database
                 {
                     Id = 2,
                     Login = "user1",
-                    PasswordHash = "user1",
+                    PasswordHash = PasswordService.getHash("user1"),
                     Name = "Иван Петров",
                     Role = UserRole.Пользователь
                 },
@@ -50,7 +51,7 @@ namespace RepairRequestsDatabaseImplement.Database
                 {
                     Id = 3,
                     Login = "user2",
-                    PasswordHash = "user2",
+                    PasswordHash = PasswordService.getHash("user2"),
                     Name = "Анна Смирнова",
                     Role = UserRole.Пользователь
                 }

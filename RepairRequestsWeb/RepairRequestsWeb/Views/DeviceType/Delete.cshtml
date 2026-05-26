@@ -1,0 +1,35 @@
+﻿@model DeviceTypeBindingModel
+
+@{
+    ViewData["Title"] = "Удаление типа техники";
+}
+
+<h2 class="mb-3">Удаление типа техники</h2>
+
+<div class="alert alert-warning">
+    Вы действительно хотите удалить этот тип техники?
+</div>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Название</th>
+        <td>@Model.Name</td>
+    </tr>
+    <tr>
+        <th>Описание</th>
+        <td>@Model.Description</td>
+    </tr>
+</table>
+
+<form asp-action="Delete" method="post">
+    @Html.AntiForgeryToken()
+
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="Name" />
+    <input type="hidden" asp-for="Description" />
+
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Назад</a>
+</form>

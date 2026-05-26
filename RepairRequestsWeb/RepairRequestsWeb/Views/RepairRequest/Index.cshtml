@@ -1,0 +1,144 @@
+﻿@using RepairRequestsDataModels.Enums
+@model List<RepairRequestViewModel>
+
+@{
+    ViewData["Title"] = "Заявки";
+
+    string? searchText = ViewBag.SearchText as string;
+    int? status = ViewBag.Status as int?;
+    int? deviceTypeId = ViewBag.DeviceTypeId as int?;
+    bool isAdmin = ViewBag.IsAdmin ?? false;
+
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int totalCount = ViewBag.TotalCount ?? 0;
+}
+
+<h2 class="mb-3">Заявки на ремонт</h2>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["Message"]
+    </div>
+}
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-3">
+        <input type="text" name="searchText" value="@searchText" class="form-control" placeholder="Поиск" />
+    </div>
+
+    <div class="col-12 col-md-3">
+        <select name="status" class="form-select">
+            <option value="">Все статусы</option>
+            @foreach (RequestStatus item in Enum.GetValues<RequestStatus>())
+            {
+                var value = (int)item;
+
+                if (status.HasValue && status.Value == value)
+                {
+                    <option value="@value" selected>@item</option>
+                }
+                else
+                {
+                    <option value="@value">@item</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+        <select name="deviceTypeId" class="form-select">
+            <option value="">Все типы техники</option>
+            @foreach (var item in ViewBag.DeviceTypes)
+            {
+                if (deviceTypeId.HasValue && deviceTypeId.Value.ToString() == item.Value)
+                {
+                    <option value="@item.Value" selected>@item.Text</option>
+                }
+                else
+                {
+                    <option value="@item.Value">@item.Text</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+        <button type="submit" class="btn btn-primary">Найти</button>
+        <a asp-action="Index" class="btn btn-secondary">Сбросить</a>
+        <a asp-action="Create" class="btn btn-success">Добавить</a>
+    </div>
+</form>
+
+<p>Всего записей: <strong>@totalCount</strong></p>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Название</th>
+                @if (isAdmin)
+                {
+                    <th>Пользователь</th>
+                }
+                <th>Тип техники</th>
+                <th>Статус</th>
+                <th>Дата</th>
+                <th>Стоимость</th>
+                <th style="width: 280px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="@(isAdmin ? 7 : 6)" class="text-center">Заявки не найдены</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var request in Model)
+                {
+                    <tr>
+                        <td>@request.Title</td>
+                        @if (isAdmin)
+                        {
+                            <td>@request.UserName</td>
+                        }
+                        <td>@request.DeviceTypeName</td>
+                        <td>@request.Status</td>
+                        <td>@request.CreatedDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@request.TotalPrice.ToString("0.00")</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@request.Id" class="btn btn-sm btn-info">Детали</a>
+                            <a asp-action="Edit" asp-route-id="@request.Id" class="btn btn-sm btn-warning">Изменить</a>
+                            <a asp-action="Delete" asp-route-id="@request.Id" class="btn btn-sm btn-danger">Удалить</a>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-page="@i"
+                       asp-route-searchText="@searchText"
+                       asp-route-status="@status"
+                       asp-route-deviceTypeId="@deviceTypeId">
+                        @i
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

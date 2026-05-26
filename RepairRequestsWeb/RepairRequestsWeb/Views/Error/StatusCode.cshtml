@@ -1,0 +1,21 @@
+﻿@{
+    ViewData["Title"] = "Ошибка";
+    int code = ViewBag.Code ?? 0;
+    string message = ViewBag.Message ?? "Произошла ошибка";
+    string? details = ViewBag.Details as string;
+}
+
+<h2 class="mb-3">Ошибка @code</h2>
+
+<div class="alert alert-danger">
+    @message
+</div>
+
+@if (!string.IsNullOrWhiteSpace(details))
+{
+    <div class="alert alert-secondary">
+        @details
+    </div>
+}
+
+<a asp-controller="Home" asp-action="Index" class="btn btn-primary">На главную</a>

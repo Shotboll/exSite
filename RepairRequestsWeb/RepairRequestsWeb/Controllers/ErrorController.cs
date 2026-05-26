@@ -1,0 +1,39 @@
+﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+namespace RepairRequestsWeb.Controllers
+{
+    public class ErrorController : Controller
+    {
+        [Route("Error/StatusCode")]
+        public IActionResult StatusCodeHandler(int code)
+        {
+            ViewBag.Code = code;
+
+            ViewBag.Message = code switch
+            {
+                400 => "Некорректный запрос",
+                401 => "Необходимо выполнить вход в систему",
+                403 => "Доступ запрещен",
+                404 => "Страница не найдена",
+                500 => "Внутренняя ошибка сервера",
+                _ => "Произошла ошибка"
+            };
+
+            return View("StatusCode");
+        }
+
+        [Route("Error/Exception")]
+        public IActionResult ExceptionHandler()
+        {
+            var exceptionFeature = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
+
+            ViewBag.Code = 500;
+            ViewBag.Message = "Внутренняя ошибка сервера";
+            ViewBag.Details = exceptionFeature?.Error.Message;
+
+            return View("StatusCode");
+        }
+    }
+}

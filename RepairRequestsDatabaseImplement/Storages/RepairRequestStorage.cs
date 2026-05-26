@@ -36,7 +36,8 @@ namespace RepairRequestsDatabaseImplement.Storages
 
         public List<RepairRequestViewModel> GetFilteredList(RepairRequestSearchModel model)
         {
-            var query = ApplyFilter(model);
+            IQueryable<RepairRequest> query = ApplyFilter(model)
+                .OrderByDescending(x => x.CreatedDate);
 
             if (model.Page.HasValue && model.PageSize.HasValue)
             {
@@ -46,7 +47,6 @@ namespace RepairRequestsDatabaseImplement.Storages
             }
 
             return query
-                .OrderByDescending(x => x.CreatedDate)
                 .Select(x => x.GetViewModel)
                 .ToList();
         }

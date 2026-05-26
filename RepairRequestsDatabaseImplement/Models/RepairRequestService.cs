@@ -15,7 +15,7 @@ namespace RepairRequestsDatabaseImplement.Models
         public int RepairRequestId { get; set; }
         public int ServiceId { get; set; }
 
-        public virtual RepairRequest RepairRequest { get; set; } = null;
+        public virtual RepairRequest RepairRequest { get; set; } = null!;
         public virtual Service Service { get; set; } = null!;
 
         public static RepairRequestService Create(RepairRequestServiceBindingModel model)
