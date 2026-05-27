@@ -1,68 +1,63 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
-using OnlineStoreBusinessLogic.BusinessLogics;
-using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.StoragesContracts;
-using OnlineStoreDatabaseImplement.Database;
-using OnlineStoreDatabaseImplement.Storages;
+document.addEventListener("DOMContentLoaded", function () {
+    const loader = document.getElementById("pageLoader");
 
-var builder = WebApplication.CreateBuilder(args);
+    function showLoader() {
+        if (loader) {
+            loader.style.display = "flex";
+        }
+    }
 
-builder.Services.AddControllersWithViews();
+    function processForms() {
+        const forms = document.querySelectorAll("form");
 
-builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
-{
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+        forms.forEach(function (form) {
+            form.addEventListener("submit", function () {
+                if (form.checkValidity && !form.checkValidity()) {
+                    return;
+                }
+
+                if (window.jQuery && jQuery(form).data("validator")) {
+                    if (!jQuery(form).valid()) {
+                        return;
+                    }
+                }
+
+                const buttons = form.querySelectorAll("button[type='submit']");
+
+                buttons.forEach(function (button) {
+                    button.disabled = true;
+                    button.innerText = "Загрузка...";
+                });
+
+                showLoader();
+            });
+        });
+    }
+
+    function processLinks() {
+        const links = document.querySelectorAll("a");
+
+        links.forEach(function (link) {
+            link.addEventListener("click", function () {
+                const href = link.getAttribute("href");
+
+                if (!href) {
+                    return;
+                }
+
+                if (href.startsWith("#") || href.startsWith("javascript:")) {
+                    return;
+                }
+
+                if (link.target === "_blank") {
+                    return;
+                }
+
+                showLoader();
+            });
+        });
+    }
+
+    processForms();
+    processLinks();
 });
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromHours(2);
-    });
-
-builder.Services.AddAuthorization();
-
-builder.Services.AddScoped<IUserStorage, UserStorage>();
-builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
-builder.Services.AddScoped<IProductStorage, ProductStorage>();
-builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
-builder.Services.AddScoped<IOrderStorage, OrderStorage>();
-
-builder.Services.AddScoped<IUserLogic, UserLogic>();
-builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
-builder.Services.AddScoped<IProductLogic, ProductLogic>();
-builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
-builder.Services.AddScoped<IOrderLogic, OrderLogic>();
-
-var app = builder.Build();
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Error/Exception");
-    app.UseHsts();
-}
-
-using (var scope = app.Services.CreateScope())
-{
-    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
-    database.Database.Migrate();
-}
-
-app.UseStatusCodePagesWithReExecute("/Error/StatusCode", "?code={0}");
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Product}/{action=Index}/{id?}");
-
-app.Run();
