@@ -1,55 +1,52 @@
-@model ProductViewModel
+@model ProductBindingModel
 
 @{
-    ViewData["Title"] = "Детали товара";
+    ViewData["Title"] = "Добавление товара";
 }
 
-<h2 class="mb-3">Детали товара</h2>
+<h2 class="mb-3">Добавление товара</h2>
 
-<table class="table table-bordered">
-    <tr>
-        <th>Название</th>
-        <td>@Model.Name</td>
-    </tr>
-    <tr>
-        <th>Описание</th>
-        <td>@Model.Description</td>
-    </tr>
-    <tr>
-        <th>Категория</th>
-        <td>@Model.CategoryName</td>
-    </tr>
-    <tr>
-        <th>Цена</th>
-        <td>@Model.Price.ToString("0.00")</td>
-    </tr>
-    <tr>
-        <th>Остаток</th>
-        <td>@Model.Quantity</td>
-    </tr>
-</table>
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
 
-@if (User.Identity != null && User.Identity.IsAuthenticated && !User.IsInRole("Администратор"))
-{
-    <form asp-action="AddToCart" method="post" class="mb-3">
-        @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-        <input type="hidden" name="productId" value="@Model.Id" />
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
 
-        <div class="mb-3">
-            <label class="form-label">Количество</label>
-            <input type="number" name="quantity" value="1" min="1" max="@Model.Quantity" class="form-control" style="max-width: 200px;" />
-        </div>
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label">Описание</label>
+        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
 
-        <button type="submit" class="btn btn-success" @(Model.Quantity <= 0 ? "disabled" : "")>
-            Добавить в корзину
-        </button>
-    </form>
+    <div class="mb-3">
+        <label asp-for="CategoryId" class="form-label">Категория</label>
+        <select asp-for="CategoryId" asp-items="ViewBag.Categories" class="form-select">
+            <option value="">Выберите категорию</option>
+        </select>
+        <span asp-validation-for="CategoryId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Price" class="form-label">Цена</label>
+        <input asp-for="Price" type="number" step="0.01" class="form-control" />
+        <span asp-validation-for="Price" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Quantity" class="form-label">Количество</label>
+        <input asp-for="Quantity" type="number" class="form-control" />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a asp-action="Index" class="btn btn-secondary">Назад</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
 }
-
-@if (User.IsInRole("Администратор"))
-{
-    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Изменить</a>
-}
-
-<a asp-action="Index" class="btn btn-secondary">Назад</a>
