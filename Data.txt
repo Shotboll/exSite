@@ -1,15 +1,13 @@
 @model ProductBindingModel
 
 @{
-    ViewData["Title"] = "Редактирование товара";
+    ViewData["Title"] = "Добавление товара";
 }
 
-<h2 class="mb-3">Редактирование товара</h2>
+<h2 class="mb-3">Добавление товара</h2>
 
-<form asp-action="Edit" method="post">
+<form asp-action="Create" method="post">
     @Html.AntiForgeryToken()
-
-    <input type="hidden" asp-for="Id" />
 
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
