@@ -1,126 +1,92 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using OnlineStoreContracts.BindingModels;
-using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.SearchModels;
-using System.Security.Claims;
+@model List<CartItemViewModel>
 
-namespace OnlineStoreWeb.Controllers
+@{
+    ViewData["Title"] = "Корзина";
+    decimal totalPrice = ViewBag.TotalPrice ?? 0;
+}
+
+<h2 class="mb-3">Корзина</h2>
+
+@if (TempData["Message"] != null)
 {
-    [Authorize]
-    public class CartController : Controller
-    {
-        private readonly ICartItemLogic _cartItemLogic;
-        private readonly IOrderLogic _orderLogic;
+    <div class="alert alert-success">
+        @TempData["Message"]
+    </div>
+}
 
-        public CartController(ICartItemLogic cartItemLogic, IOrderLogic orderLogic)
-        {
-            _cartItemLogic = cartItemLogic;
-            _orderLogic = orderLogic;
-        }
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">
+        @TempData["Error"]
+    </div>
+}
 
-        [HttpGet]
-        public IActionResult Index()
-        {
-            var userId = GetCurrentUserId();
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">
+        Корзина пуста.
+    </div>
 
-            var cartItems = _cartItemLogic.ReadList(new CartItemSearchModel
-            {
-                UserId = userId
-            });
-
-            ViewBag.TotalPrice = _cartItemLogic.GetCartTotal(userId);
-
-            return View(cartItems);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult UpdateQuantity(int id, int quantity)
-        {
-            try
-            {
-                _cartItemLogic.UpdateQuantity(new CartItemBindingModel
+    <a asp-controller="Product" asp-action="Index" class="btn btn-primary">Перейти к товарам</a>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Цена</th>
+                    <th>Количество</th>
+                    <th>Сумма</th>
+                    <th style="width: 250px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
                 {
-                    Id = id,
-                    Quantity = quantity
-                });
+                    <tr>
+                        <td>@item.ProductName</td>
+                        <td>@item.ProductPrice.ToString("0.00")</td>
+                        <td>
+                            <form asp-action="UpdateQuantity" method="post" class="d-flex gap-2">
+                                @Html.AntiForgeryToken()
 
-                TempData["Message"] = "Количество товара изменено";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-            }
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <input type="number" name="quantity" value="@item.Quantity" min="1" class="form-control" style="max-width: 100px;" />
 
-            return RedirectToAction(nameof(Index));
-        }
+                                <button type="submit" class="btn btn-sm btn-warning">Обновить</button>
+                            </form>
+                        </td>
+                        <td>@item.TotalPrice.ToString("0.00")</td>
+                        <td>
+                            <form asp-action="Delete" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Delete(int id)
-        {
-            try
-            {
-                _cartItemLogic.Delete(new CartItemBindingModel
-                {
-                    Id = id
-                });
+                                <input type="hidden" name="id" value="@item.Id" />
 
-                TempData["Message"] = "Товар удален из корзины";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-            }
+                                <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 
-            return RedirectToAction(nameof(Index));
-        }
+    <h4 class="mb-3">Итого: @totalPrice.ToString("0.00")</h4>
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Clear()
-        {
-            try
-            {
-                _cartItemLogic.ClearCart(GetCurrentUserId());
-                TempData["Message"] = "Корзина очищена";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-            }
+    <div class="d-flex gap-2">
+        <a asp-controller="Product" asp-action="Index" class="btn btn-secondary">Продолжить покупки</a>
 
-            return RedirectToAction(nameof(Index));
-        }
+        <form asp-action="Checkout" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-success">Оформить заказ</button>
+        </form>
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Checkout()
-        {
-            try
-            {
-                _orderLogic.Checkout(GetCurrentUserId());
-                TempData["Message"] = "Заказ успешно оформлен";
-                return RedirectToAction("Index", "Order");
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-                return RedirectToAction(nameof(Index));
-            }
-        }
-
-        private int GetCurrentUserId()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return 0;
-            }
-
-            return int.Parse(userId);
-        }
-    }
+        <form asp-action="Clear" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-danger">Очистить корзину</button>
+        </form>
+    </div>
 }
