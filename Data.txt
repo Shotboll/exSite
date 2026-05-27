@@ -1,139 +1,225 @@
-using Microsoft.EntityFrameworkCore;
 using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.BusinessLogicsContracts;
 using OnlineStoreContracts.SearchModels;
 using OnlineStoreContracts.StoragesContracts;
 using OnlineStoreContracts.ViewModels;
-using OnlineStoreDatabaseImplement.Database;
-using OnlineStoreDatabaseImplement.Models;
 
-namespace OnlineStoreDatabaseImplement.Storages
+namespace OnlineStoreBusinessLogic.BusinessLogics
 {
-    public class CartItemStorage : ICartItemStorage
+    public class CartItemLogic : ICartItemLogic
     {
-        private readonly OnlineStoreDatabase _context;
+        private readonly ICartItemStorage _cartItemStorage;
+        private readonly IProductStorage _productStorage;
+        private readonly IUserStorage _userStorage;
 
-        public CartItemStorage(OnlineStoreDatabase context)
+        public CartItemLogic(ICartItemStorage cartItemStorage, IProductStorage productStorage, IUserStorage userStorage)
         {
-            _context = context;
+            _cartItemStorage = cartItemStorage;
+            _productStorage = productStorage;
+            _userStorage = userStorage;
         }
 
-        public List<CartItemViewModel> GetFullList()
+        public List<CartItemViewModel> ReadList(CartItemSearchModel? model)
         {
-            return _context.CartItems
-                .Include(x => x.User)
-                .Include(x => x.Product)
-                .OrderBy(x => x.Id)
-                .Select(x => x.GetViewModel)
-                .ToList();
+            if (model == null)
+            {
+                return _cartItemStorage.GetFullList();
+            }
+
+            return _cartItemStorage.GetFilteredList(model);
         }
 
-        public List<CartItemViewModel> GetFilteredList(CartItemSearchModel model)
+        public CartItemViewModel? ReadElement(CartItemSearchModel model)
         {
-            var query = _context.CartItems
-                .Include(x => x.User)
-                .Include(x => x.Product)
-                .AsQueryable();
-
-            if (model.Id.HasValue)
+            if (model == null)
             {
-                query = query.Where(x => x.Id == model.Id.Value);
+                throw new ArgumentNullException(nameof(model));
             }
 
-            if (model.UserId.HasValue)
-            {
-                query = query.Where(x => x.UserId == model.UserId.Value);
-            }
-
-            if (model.ProductId.HasValue)
-            {
-                query = query.Where(x => x.ProductId == model.ProductId.Value);
-            }
-
-            return query
-                .OrderBy(x => x.Id)
-                .Select(x => x.GetViewModel)
-                .ToList();
+            return _cartItemStorage.GetElement(model);
         }
 
-        public CartItemViewModel? GetElement(CartItemSearchModel model)
+        public bool AddToCart(CartItemBindingModel model)
         {
-            var query = _context.CartItems
-                .Include(x => x.User)
-                .Include(x => x.Product)
-                .AsQueryable();
+            CheckModel(model);
 
-            if (model.Id.HasValue)
+            var product = _productStorage.GetElement(new ProductSearchModel
             {
-                return query
-                    .FirstOrDefault(x => x.Id == model.Id.Value)
-                    ?.GetViewModel;
-            }
-
-            if (model.UserId.HasValue && model.ProductId.HasValue)
-            {
-                return query
-                    .FirstOrDefault(x => x.UserId == model.UserId.Value && x.ProductId == model.ProductId.Value)
-                    ?.GetViewModel;
-            }
-
-            return null;
-        }
-
-        public CartItemViewModel? Insert(CartItemBindingModel model)
-        {
-            var cartItem = CartItem.Create(model);
-            _context.CartItems.Add(cartItem);
-            _context.SaveChanges();
-
-            return GetElement(new CartItemSearchModel
-            {
-                Id = cartItem.Id
+                Id = model.ProductId
             });
-        }
 
-        public CartItemViewModel? Update(CartItemBindingModel model)
-        {
-            var cartItem = _context.CartItems.FirstOrDefault(x => x.Id == model.Id);
-
-            if (cartItem == null)
+            if (product == null)
             {
-                return null;
+                throw new InvalidOperationException("Товар не найден");
             }
 
-            cartItem.Update(model);
-            _context.SaveChanges();
-
-            return GetElement(new CartItemSearchModel
+            var existingCartItem = _cartItemStorage.GetElement(new CartItemSearchModel
             {
-                Id = cartItem.Id
+                UserId = model.UserId,
+                ProductId = model.ProductId
             });
-        }
 
-        public CartItemViewModel? Delete(CartItemBindingModel model)
-        {
-            var cartItem = _context.CartItems.FirstOrDefault(x => x.Id == model.Id);
+            var newQuantity = model.Quantity;
 
-            if (cartItem == null)
+            if (existingCartItem != null)
             {
-                return null;
+                newQuantity += existingCartItem.Quantity;
             }
 
-            _context.CartItems.Remove(cartItem);
-            _context.SaveChanges();
+            if (product.Quantity < newQuantity)
+            {
+                throw new InvalidOperationException("Недостаточно товара на складе");
+            }
 
-            return cartItem.GetViewModel;
+            if (existingCartItem != null)
+            {
+                var updatedCartItem = new CartItemBindingModel
+                {
+                    Id = existingCartItem.Id,
+                    UserId = existingCartItem.UserId,
+                    ProductId = existingCartItem.ProductId,
+                    Quantity = newQuantity
+                };
+
+                var updateResult = _cartItemStorage.Update(updatedCartItem);
+                return updateResult != null;
+            }
+
+            var insertResult = _cartItemStorage.Insert(model);
+            return insertResult != null;
+        }
+
+        public bool UpdateQuantity(CartItemBindingModel model)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (model.Id <= 0)
+            {
+                throw new InvalidOperationException("Некорректный идентификатор позиции корзины");
+            }
+
+            if (model.Quantity <= 0)
+            {
+                throw new InvalidOperationException("Количество должно быть больше 0");
+            }
+
+            var existingCartItem = _cartItemStorage.GetElement(new CartItemSearchModel
+            {
+                Id = model.Id
+            });
+
+            if (existingCartItem == null)
+            {
+                throw new InvalidOperationException("Позиция корзины не найдена");
+            }
+
+            var product = _productStorage.GetElement(new ProductSearchModel
+            {
+                Id = existingCartItem.ProductId
+            });
+
+            if (product == null)
+            {
+                throw new InvalidOperationException("Товар не найден");
+            }
+
+            if (product.Quantity < model.Quantity)
+            {
+                throw new InvalidOperationException("Недостаточно товара на складе");
+            }
+
+            model.UserId = existingCartItem.UserId;
+            model.ProductId = existingCartItem.ProductId;
+
+            var result = _cartItemStorage.Update(model);
+            return result != null;
+        }
+
+        public bool Delete(CartItemBindingModel model)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (model.Id <= 0)
+            {
+                throw new InvalidOperationException("Некорректный идентификатор позиции корзины");
+            }
+
+            var result = _cartItemStorage.Delete(model);
+            return result != null;
         }
 
         public bool ClearCart(int userId)
         {
-            var cartItems = _context.CartItems
-                .Where(x => x.UserId == userId)
-                .ToList();
+            if (userId <= 0)
+            {
+                throw new InvalidOperationException("Пользователь не указан");
+            }
 
-            _context.CartItems.RemoveRange(cartItems);
-            _context.SaveChanges();
+            return _cartItemStorage.ClearCart(userId);
+        }
 
-            return true;
+        public decimal GetCartTotal(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new InvalidOperationException("Пользователь не указан");
+            }
+
+            var cartItems = _cartItemStorage.GetFilteredList(new CartItemSearchModel
+            {
+                UserId = userId
+            });
+
+            return cartItems.Sum(x => x.TotalPrice);
+        }
+
+        private void CheckModel(CartItemBindingModel model)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (model.UserId <= 0)
+            {
+                throw new InvalidOperationException("Пользователь не указан");
+            }
+
+            if (model.ProductId <= 0)
+            {
+                throw new InvalidOperationException("Товар не выбран");
+            }
+
+            if (model.Quantity <= 0)
+            {
+                throw new InvalidOperationException("Количество должно быть больше 0");
+            }
+
+            var user = _userStorage.GetElement(new UserSearchModel
+            {
+                Id = model.UserId
+            });
+
+            if (user == null)
+            {
+                throw new InvalidOperationException("Пользователь не найден");
+            }
+
+            var product = _productStorage.GetElement(new ProductSearchModel
+            {
+                Id = model.ProductId
+            });
+
+            if (product == null)
+            {
+                throw new InvalidOperationException("Товар не найден");
+            }
         }
     }
 }
