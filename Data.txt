@@ -1,240 +1,172 @@
 using Microsoft.EntityFrameworkCore;
+using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.SearchModels;
+using OnlineStoreContracts.StoragesContracts;
+using OnlineStoreContracts.ViewModels;
+using OnlineStoreDatabaseImplement.Database;
 using OnlineStoreDatabaseImplement.Models;
-using OnlineStoreDataModels.Enums;
 
-namespace OnlineStoreDatabaseImplement.Database
+namespace OnlineStoreDatabaseImplement.Storages
 {
-    public class OnlineStoreDatabase : DbContext
+    public class ProductStorage : IProductStorage
     {
-        public OnlineStoreDatabase(DbContextOptions<OnlineStoreDatabase> options) : base(options)
+        private readonly OnlineStoreDatabase _context;
+
+        public ProductStorage(OnlineStoreDatabase context)
         {
+            _context = context;
         }
 
-        public DbSet<User> Users { get; set; }
-
-        public DbSet<Category> Categories { get; set; }
-
-        public DbSet<Product> Products { get; set; }
-
-        public DbSet<CartItem> CartItems { get; set; }
-
-        public DbSet<Order> Orders { get; set; }
-
-        public DbSet<OrderItem> OrderItems { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        public List<ProductViewModel> GetFullList()
         {
-            base.OnModelCreating(modelBuilder);
-
-            SeedData(modelBuilder);
+            return _context.Products
+                .Include(x => x.Category)
+                .OrderBy(x => x.Name)
+                .Select(x => x.GetViewModel)
+                .ToList();
         }
 
-        private static void SeedData(ModelBuilder modelBuilder)
+        public List<ProductViewModel> GetFilteredList(ProductSearchModel model)
         {
-            modelBuilder.Entity<User>().HasData(
-                new User
-                {
-                    Id = 1,
-                    Login = "admin",
-                    PasswordHash = "8C6976E5B5410415BDE908BD4DEE15DFB167A9C873FC4BB8A81F6F2AB448A918",
-                    Name = "Администратор",
-                    Role = UserRole.Администратор
-                },
-                new User
-                {
-                    Id = 2,
-                    Login = "user1",
-                    PasswordHash = "0A041B9462CAA4A31BAC3567E0B6E6FD9100787D2FEC84EF0E623B0B37D0B8B8",
-                    Name = "Иван Петров",
-                    Role = UserRole.Пользователь
-                },
-                new User
-                {
-                    Id = 3,
-                    Login = "user2",
-                    PasswordHash = "6025D18FE48ABD45168528F18A82E265DD98D421FA5DCE39889201A4DBA5F686",
-                    Name = "Анна Смирнова",
-                    Role = UserRole.Пользователь
-                }
-            );
+            IQueryable<Product> query = ApplyFilter(model)
+                .OrderBy(x => x.Name);
 
-            modelBuilder.Entity<Category>().HasData(
-                new Category
-                {
-                    Id = 1,
-                    Name = "Ноутбуки",
-                    Description = "Портативные компьютеры для работы и учебы"
-                },
-                new Category
-                {
-                    Id = 2,
-                    Name = "Смартфоны",
-                    Description = "Мобильные телефоны"
-                },
-                new Category
-                {
-                    Id = 3,
-                    Name = "Мониторы",
-                    Description = "Устройства отображения информации"
-                },
-                new Category
-                {
-                    Id = 4,
-                    Name = "Наушники",
-                    Description = "Проводные и беспроводные наушники"
-                },
-                new Category
-                {
-                    Id = 5,
-                    Name = "Клавиатуры",
-                    Description = "Клавиатуры для компьютеров"
-                }
-            );
+            if (model.Page.HasValue && model.PageSize.HasValue)
+            {
+                query = query
+                    .Skip((model.Page.Value - 1) * model.PageSize.Value)
+                    .Take(model.PageSize.Value);
+            }
 
-            modelBuilder.Entity<Product>().HasData(
-                new Product
-                {
-                    Id = 1,
-                    Name = "Lenovo IdeaPad 3",
-                    Description = "Ноутбук для учебы и офисных задач",
-                    Price = 52000,
-                    Quantity = 8,
-                    CategoryId = 1
-                },
-                new Product
-                {
-                    Id = 2,
-                    Name = "ASUS VivoBook 15",
-                    Description = "Ноутбук с экраном 15 дюймов",
-                    Price = 61000,
-                    Quantity = 5,
-                    CategoryId = 1
-                },
-                new Product
-                {
-                    Id = 3,
-                    Name = "Samsung Galaxy A55",
-                    Description = "Смартфон среднего класса",
-                    Price = 39000,
-                    Quantity = 12,
-                    CategoryId = 2
-                },
-                new Product
-                {
-                    Id = 4,
-                    Name = "Xiaomi Redmi Note 13",
-                    Description = "Смартфон с большим экраном",
-                    Price = 23000,
-                    Quantity = 20,
-                    CategoryId = 2
-                },
-                new Product
-                {
-                    Id = 5,
-                    Name = "LG UltraGear 24",
-                    Description = "Игровой монитор 24 дюйма",
-                    Price = 18000,
-                    Quantity = 7,
-                    CategoryId = 3
-                },
-                new Product
-                {
-                    Id = 6,
-                    Name = "Sony WH-CH520",
-                    Description = "Беспроводные наушники",
-                    Price = 5500,
-                    Quantity = 15,
-                    CategoryId = 4
-                },
-                new Product
-                {
-                    Id = 7,
-                    Name = "Logitech K120",
-                    Description = "Проводная клавиатура",
-                    Price = 1200,
-                    Quantity = 30,
-                    CategoryId = 5
-                },
-                new Product
-                {
-                    Id = 8,
-                    Name = "HyperX Alloy Core",
-                    Description = "Игровая клавиатура",
-                    Price = 4200,
-                    Quantity = 10,
-                    CategoryId = 5
-                }
-            );
+            return query
+                .Select(x => x.GetViewModel)
+                .ToList();
+        }
 
-            modelBuilder.Entity<CartItem>().HasData(
-                new CartItem
-                {
-                    Id = 1,
-                    UserId = 2,
-                    ProductId = 1,
-                    Quantity = 1
-                },
-                new CartItem
-                {
-                    Id = 2,
-                    UserId = 2,
-                    ProductId = 6,
-                    Quantity = 2
-                },
-                new CartItem
-                {
-                    Id = 3,
-                    UserId = 3,
-                    ProductId = 4,
-                    Quantity = 1
-                }
-            );
+        public ProductViewModel? GetElement(ProductSearchModel model)
+        {
+            if (!model.Id.HasValue)
+            {
+                return null;
+            }
 
-            modelBuilder.Entity<Order>().HasData(
-                new Order
-                {
-                    Id = 1,
-                    UserId = 2,
-                    CreatedDate = new DateTime(2026, 5, 1, 10, 0, 0, DateTimeKind.Utc),
-                    Status = OrderStatus.Новый,
-                    TotalPrice = 53200
-                },
-                new Order
-                {
-                    Id = 2,
-                    UserId = 3,
-                    CreatedDate = new DateTime(2026, 5, 2, 12, 30, 0, DateTimeKind.Utc),
-                    Status = OrderStatus.ВОбработке,
-                    TotalPrice = 23000
-                }
-            );
+            return _context.Products
+                .Include(x => x.Category)
+                .FirstOrDefault(x => x.Id == model.Id.Value)
+                ?.GetViewModel;
+        }
 
-            modelBuilder.Entity<OrderItem>().HasData(
-                new OrderItem
-                {
-                    Id = 1,
-                    OrderId = 1,
-                    ProductId = 1,
-                    Quantity = 1,
-                    Price = 52000
-                },
-                new OrderItem
-                {
-                    Id = 2,
-                    OrderId = 1,
-                    ProductId = 7,
-                    Quantity = 1,
-                    Price = 1200
-                },
-                new OrderItem
-                {
-                    Id = 3,
-                    OrderId = 2,
-                    ProductId = 4,
-                    Quantity = 1,
-                    Price = 23000
-                }
-            );
+        public int GetCount(ProductSearchModel? model)
+        {
+            if (model == null)
+            {
+                return _context.Products.Count();
+            }
+
+            return ApplyFilter(model).Count();
+        }
+
+        public ProductViewModel? Insert(ProductBindingModel model)
+        {
+            var product = Product.Create(model);
+            _context.Products.Add(product);
+            _context.SaveChanges();
+
+            return GetElement(new ProductSearchModel
+            {
+                Id = product.Id
+            });
+        }
+
+        public ProductViewModel? Update(ProductBindingModel model)
+        {
+            var product = _context.Products.FirstOrDefault(x => x.Id == model.Id);
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            product.Update(model);
+            _context.SaveChanges();
+
+            return GetElement(new ProductSearchModel
+            {
+                Id = product.Id
+            });
+        }
+
+        public ProductViewModel? Delete(ProductBindingModel model)
+        {
+            var product = _context.Products.FirstOrDefault(x => x.Id == model.Id);
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            _context.Products.Remove(product);
+            _context.SaveChanges();
+
+            return product.GetViewModel;
+        }
+
+        public bool DecreaseQuantity(int productId, int quantity)
+        {
+            var product = _context.Products.FirstOrDefault(x => x.Id == productId);
+
+            if (product == null)
+            {
+                return false;
+            }
+
+            if (product.Quantity < quantity)
+            {
+                return false;
+            }
+
+            product.Quantity -= quantity;
+            _context.SaveChanges();
+
+            return true;
+        }
+
+        private IQueryable<Product> ApplyFilter(ProductSearchModel model)
+        {
+            var query = _context.Products
+                .Include(x => x.Category)
+                .AsQueryable();
+
+            if (model.Id.HasValue)
+            {
+                query = query.Where(x => x.Id == model.Id.Value);
+            }
+
+            if (model.CategoryId.HasValue)
+            {
+                query = query.Where(x => x.CategoryId == model.CategoryId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.SearchText))
+            {
+                var searchText = model.SearchText.ToLower();
+
+                query = query.Where(x =>
+                    x.Name.ToLower().Contains(searchText) ||
+                    (x.Description != null && x.Description.ToLower().Contains(searchText)));
+            }
+
+            if (model.MinPrice.HasValue)
+            {
+                query = query.Where(x => x.Price >= model.MinPrice.Value);
+            }
+
+            if (model.MaxPrice.HasValue)
+            {
+                query = query.Where(x => x.Price <= model.MaxPrice.Value);
+            }
+
+            return query;
         }
     }
 }
