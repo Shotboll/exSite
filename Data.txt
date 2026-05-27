@@ -1,35 +1,67 @@
-@model CategoryBindingModel
+<header>
+    <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <div class="container-fluid">
+            <a class="navbar-brand" asp-controller="Product" asp-action="Index">OnlineStore</a>
 
-@{
-    ViewData["Title"] = "Удаление категории";
-}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
+                    aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Переключить навигацию">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-<h2 class="mb-3">Удаление категории</h2>
+            <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                <ul class="navbar-nav flex-grow-1">
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" asp-controller="Product" asp-action="Index">Товары</a>
+                    </li>
 
-<div class="alert alert-warning">
-    Вы действительно хотите удалить эту категорию?
-</div>
+                    @if (User.Identity != null && User.Identity.IsAuthenticated && !User.IsInRole("Администратор"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Cart" asp-action="Index">Корзина</a>
+                        </li>
+                    }
 
-<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Order" asp-action="Index">Заказы</a>
+                        </li>
+                    }
 
-<table class="table table-bordered">
-    <tr>
-        <th>Название</th>
-        <td>@Model.Name</td>
-    </tr>
-    <tr>
-        <th>Описание</th>
-        <td>@Model.Description</td>
-    </tr>
-</table>
+                    @if (User.IsInRole("Администратор"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Category" asp-action="Index">Категории</a>
+                        </li>
+                    }
+                </ul>
 
-<form asp-action="Delete" method="post">
-    @Html.AntiForgeryToken()
+                <ul class="navbar-nav">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <li class="nav-item">
+                            <span class="nav-link text-dark">Пользователь: @User.Identity.Name</span>
+                        </li>
 
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="Name" />
-    <input type="hidden" asp-for="Description" />
+                        <li class="nav-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-link nav-link text-dark">Выход</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Account" asp-action="Login">Вход</a>
+                        </li>
 
-    <button type="submit" class="btn btn-danger">Удалить</button>
-    <a asp-action="Index" class="btn btn-secondary">Назад</a>
-</form>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Account" asp-action="Register">Регистрация</a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
