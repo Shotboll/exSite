@@ -1,34 +1,35 @@
 @model CategoryBindingModel
 
 @{
-    ViewData["Title"] = "Редактирование категории";
+    ViewData["Title"] = "Удаление категории";
 }
 
-<h2 class="mb-3">Редактирование категории</h2>
+<h2 class="mb-3">Удаление категории</h2>
 
-<form asp-action="Edit" method="post">
+<div class="alert alert-warning">
+    Вы действительно хотите удалить эту категорию?
+</div>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Название</th>
+        <td>@Model.Name</td>
+    </tr>
+    <tr>
+        <th>Описание</th>
+        <td>@Model.Description</td>
+    </tr>
+</table>
+
+<form asp-action="Delete" method="post">
     @Html.AntiForgeryToken()
 
     <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="Name" />
+    <input type="hidden" asp-for="Description" />
 
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-    <div class="mb-3">
-        <label asp-for="Name" class="form-label">Название</label>
-        <input asp-for="Name" class="form-control" />
-        <span asp-validation-for="Name" class="text-danger"></span>
-    </div>
-
-    <div class="mb-3">
-        <label asp-for="Description" class="form-label">Описание</label>
-        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
-
-    <button type="submit" class="btn btn-success">Сохранить</button>
+    <button type="submit" class="btn btn-danger">Удалить</button>
     <a asp-action="Index" class="btn btn-secondary">Назад</a>
 </form>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
