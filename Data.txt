@@ -1,68 +1,31 @@
-@model OrderViewModel
+@model OrderBindingModel
 
 @{
-    ViewData["Title"] = "Детали заказа";
+    ViewData["Title"] = "Изменение статуса заказа";
 }
 
-<h2 class="mb-3">Детали заказа №@Model.Id</h2>
+<h2 class="mb-3">Изменение статуса заказа №@Model.Id</h2>
 
-<table class="table table-bordered">
-    <tr>
-        <th>Пользователь</th>
-        <td>@Model.UserName</td>
-    </tr>
-    <tr>
-        <th>Дата создания</th>
-        <td>@Model.CreatedDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
-    </tr>
-    <tr>
-        <th>Статус</th>
-        <td>@Model.Status</td>
-    </tr>
-    <tr>
-        <th>Сумма заказа</th>
-        <td>@Model.TotalPrice.ToString("0.00")</td>
-    </tr>
-</table>
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
 
-<h4 class="mt-4">Товары в заказе</h4>
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="UserId" />
+    <input type="hidden" asp-for="CreatedDate" />
+    <input type="hidden" asp-for="TotalPrice" />
 
-<div class="table-responsive">
-    <table class="table table-bordered table-striped align-middle">
-        <thead>
-            <tr>
-                <th>Товар</th>
-                <th>Цена на момент заказа</th>
-                <th>Количество</th>
-                <th>Сумма</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model.Items.Count == 0)
-            {
-                <tr>
-                    <td colspan="4" class="text-center">Товары не найдены</td>
-                </tr>
-            }
-            else
-            {
-                foreach (var item in Model.Items)
-                {
-                    <tr>
-                        <td>@item.ProductName</td>
-                        <td>@item.Price.ToString("0.00")</td>
-                        <td>@item.Quantity</td>
-                        <td>@item.TotalPrice.ToString("0.00")</td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
-</div>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-@if (User.IsInRole("Администратор"))
-{
-    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Изменить статус</a>
+    <div class="mb-3">
+        <label asp-for="Status" class="form-label">Статус заказа</label>
+        <select asp-for="Status" asp-items="ViewBag.Statuses" class="form-select"></select>
+        <span asp-validation-for="Status" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a asp-action="Index" class="btn btn-secondary">Назад</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
 }
-
-<a asp-action="Index" class="btn btn-secondary">Назад</a>
