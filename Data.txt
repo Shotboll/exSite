@@ -1,254 +1,152 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using OnlineStoreContracts.BindingModels;
-using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.SearchModels;
-using System.Security.Claims;
+@model List<ProductViewModel>
 
-namespace OnlineStoreWeb.Controllers
+@{
+    ViewData["Title"] = "Товары";
+
+    string? searchText = ViewBag.SearchText as string;
+    int? categoryId = ViewBag.CategoryId as int?;
+    decimal? minPrice = ViewBag.MinPrice as decimal?;
+    decimal? maxPrice = ViewBag.MaxPrice as decimal?;
+
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int totalCount = ViewBag.TotalCount ?? 0;
+}
+
+<h2 class="mb-3">Товары</h2>
+
+@if (TempData["Message"] != null)
 {
-    public class ProductController : Controller
-    {
-        private readonly IProductLogic _productLogic;
-        private readonly ICategoryLogic _categoryLogic;
-        private readonly ICartItemLogic _cartItemLogic;
+    <div class="alert alert-success">
+        @TempData["Message"]
+    </div>
+}
 
-        public ProductController(IProductLogic productLogic, ICategoryLogic categoryLogic, ICartItemLogic cartItemLogic)
-        {
-            _productLogic = productLogic;
-            _categoryLogic = categoryLogic;
-            _cartItemLogic = cartItemLogic;
-        }
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">
+        @TempData["Error"]
+    </div>
+}
 
-        [HttpGet]
-        public IActionResult Index(string? searchText, int? categoryId, decimal? minPrice, decimal? maxPrice, int page = 1)
-        {
-            const int pageSize = 5;
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-3">
+        <input type="text" name="searchText" value="@searchText" class="form-control" placeholder="Поиск товара" />
+    </div>
 
-            if (page < 1)
+    <div class="col-12 col-md-3">
+        <select name="categoryId" class="form-select">
+            <option value="">Все категории</option>
+            @foreach (var item in ViewBag.Categories)
             {
-                page = 1;
-            }
-
-            var searchModel = new ProductSearchModel
-            {
-                SearchText = searchText,
-                CategoryId = categoryId,
-                MinPrice = minPrice,
-                MaxPrice = maxPrice,
-                Page = page,
-                PageSize = pageSize
-            };
-
-            var products = _productLogic.ReadList(searchModel);
-            var totalCount = _productLogic.GetCount(searchModel);
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-
-            ViewBag.SearchText = searchText;
-            ViewBag.CategoryId = categoryId;
-            ViewBag.MinPrice = minPrice;
-            ViewBag.MaxPrice = maxPrice;
-            ViewBag.CurrentPage = page;
-            ViewBag.TotalPages = totalPages;
-            ViewBag.TotalCount = totalCount;
-
-            FillCategoryViewBag();
-
-            return View(products);
-        }
-
-        [HttpGet]
-        public IActionResult Details(int id)
-        {
-            var product = _productLogic.ReadElement(new ProductSearchModel
-            {
-                Id = id
-            });
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return View(product);
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpGet]
-        public IActionResult Create()
-        {
-            FillCategoryViewBag();
-            return View(new ProductBindingModel());
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Create(ProductBindingModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                FillCategoryViewBag();
-                return View(model);
-            }
-
-            try
-            {
-                _productLogic.Create(model);
-                TempData["Message"] = "Товар успешно добавлен";
-                return RedirectToAction(nameof(Index));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                FillCategoryViewBag();
-                return View(model);
-            }
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpGet]
-        public IActionResult Edit(int id)
-        {
-            var product = _productLogic.ReadElement(new ProductSearchModel
-            {
-                Id = id
-            });
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            var model = new ProductBindingModel
-            {
-                Id = product.Id,
-                Name = product.Name,
-                Description = product.Description,
-                Price = product.Price,
-                Quantity = product.Quantity,
-                CategoryId = product.CategoryId
-            };
-
-            FillCategoryViewBag();
-
-            return View(model);
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Edit(ProductBindingModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                FillCategoryViewBag();
-                return View(model);
-            }
-
-            try
-            {
-                _productLogic.Update(model);
-                TempData["Message"] = "Товар успешно изменен";
-                return RedirectToAction(nameof(Index));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                FillCategoryViewBag();
-                return View(model);
-            }
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpGet]
-        public IActionResult Delete(int id)
-        {
-            var product = _productLogic.ReadElement(new ProductSearchModel
-            {
-                Id = id
-            });
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return View(product);
-        }
-
-        [Authorize(Roles = "Администратор")]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult DeleteConfirmed(int id)
-        {
-            try
-            {
-                _productLogic.Delete(new ProductBindingModel
+                if (categoryId.HasValue && categoryId.Value.ToString() == item.Value)
                 {
-                    Id = id
-                });
-
-                TempData["Message"] = "Товар успешно удален";
-                return RedirectToAction(nameof(Index));
-            }
-            catch
-            {
-                var product = _productLogic.ReadElement(new ProductSearchModel
-                {
-                    Id = id
-                });
-
-                if (product == null)
-                {
-                    return NotFound();
+                    <option value="@item.Value" selected>@item.Text</option>
                 }
-
-                ModelState.AddModelError(string.Empty, "Невозможно удалить товар, потому что он используется в корзинах или заказах");
-                return View("Delete", product);
-            }
-        }
-
-        [Authorize]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult AddToCart(int productId, int quantity = 1)
-        {
-            try
-            {
-                _cartItemLogic.AddToCart(new CartItemBindingModel
+                else
                 {
-                    UserId = GetCurrentUserId(),
-                    ProductId = productId,
-                    Quantity = quantity
-                });
-
-                TempData["Message"] = "Товар добавлен в корзину";
+                    <option value="@item.Value">@item.Text</option>
+                }
             }
-            catch (Exception ex)
+        </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+        <input type="number" step="0.01" name="minPrice" value="@minPrice" class="form-control" placeholder="Цена от" />
+    </div>
+
+    <div class="col-6 col-md-2">
+        <input type="number" step="0.01" name="maxPrice" value="@maxPrice" class="form-control" placeholder="Цена до" />
+    </div>
+
+    <div class="col-12 col-md-2">
+        <button type="submit" class="btn btn-primary">Найти</button>
+        <a asp-action="Index" class="btn btn-secondary">Сбросить</a>
+    </div>
+</form>
+
+@if (User.IsInRole("Администратор"))
+{
+    <p>
+        <a asp-action="Create" class="btn btn-success">Добавить товар</a>
+    </p>
+}
+
+<p>Всего товаров: <strong>@totalCount</strong></p>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Категория</th>
+                <th>Цена</th>
+                <th>Остаток</th>
+                <th style="width: 330px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Count == 0)
             {
-                TempData["Error"] = ex.Message;
+                <tr>
+                    <td colspan="5" class="text-center">Товары не найдены</td>
+                </tr>
             }
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        private void FillCategoryViewBag()
-        {
-            ViewBag.Categories = new SelectList(_categoryLogic.ReadList(null), "Id", "Name");
-        }
-
-        private int GetCurrentUserId()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (string.IsNullOrWhiteSpace(userId))
+            else
             {
-                return 0;
-            }
+                foreach (var product in Model)
+                {
+                    <tr>
+                        <td>@product.Name</td>
+                        <td>@product.CategoryName</td>
+                        <td>@product.Price.ToString("0.00")</td>
+                        <td>@product.Quantity</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@product.Id" class="btn btn-sm btn-info">Детали</a>
 
-            return int.Parse(userId);
-        }
-    }
+                            @if (User.Identity != null && User.Identity.IsAuthenticated && !User.IsInRole("Администратор"))
+                            {
+                                <form asp-action="AddToCart" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="productId" value="@product.Id" />
+                                    <input type="hidden" name="quantity" value="1" />
+                                    <button type="submit" class="btn btn-sm btn-success" @(product.Quantity <= 0 ? "disabled" : "")>
+                                        В корзину
+                                    </button>
+                                </form>
+                            }
+
+                            @if (User.IsInRole("Администратор"))
+                            {
+                                <a asp-action="Edit" asp-route-id="@product.Id" class="btn btn-sm btn-warning">Изменить</a>
+                                <a asp-action="Delete" asp-route-id="@product.Id" class="btn btn-sm btn-danger">Удалить</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-page="@i"
+                       asp-route-searchText="@searchText"
+                       asp-route-categoryId="@categoryId"
+                       asp-route-minPrice="@minPrice"
+                       asp-route-maxPrice="@maxPrice">
+                        @i
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
 }
