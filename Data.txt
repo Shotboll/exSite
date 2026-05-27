@@ -1,38 +1,21 @@
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-
-namespace OnlineStoreWeb.Controllers
-{
-    public class ErrorController : Controller
-    {
-        [Route("Error/StatusCode")]
-        public IActionResult StatusCodeHandler(int code)
-        {
-            ViewBag.Code = code;
-
-            ViewBag.Message = code switch
-            {
-                400 => "Некорректный запрос",
-                401 => "Необходимо выполнить вход в систему",
-                403 => "Доступ запрещен",
-                404 => "Страница не найдена",
-                500 => "Внутренняя ошибка сервера",
-                _ => "Произошла ошибка"
-            };
-
-            return View("StatusCode");
-        }
-
-        [Route("Error/Exception")]
-        public IActionResult ExceptionHandler()
-        {
-            var exceptionFeature = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
-
-            ViewBag.Code = 500;
-            ViewBag.Message = "Внутренняя ошибка сервера";
-            ViewBag.Details = exceptionFeature?.Error.Message;
-
-            return View("StatusCode");
-        }
-    }
+@{
+    ViewData["Title"] = "Ошибка";
+    int code = ViewBag.Code ?? 0;
+    string message = ViewBag.Message ?? "Произошла ошибка";
+    string? details = ViewBag.Details as string;
 }
+
+<h2 class="mb-3">Ошибка @code</h2>
+
+<div class="alert alert-danger">
+    @message
+</div>
+
+@if (!string.IsNullOrWhiteSpace(details))
+{
+    <div class="alert alert-secondary">
+        @details
+    </div>
+}
+
+<a asp-controller="Product" asp-action="Index" class="btn btn-primary">К товарам</a>
