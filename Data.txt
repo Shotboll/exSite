@@ -1,54 +1,254 @@
-using Microsoft.EntityFrameworkCore;
-using OnlineStoreBusinessLogic.BusinessLogics;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using OnlineStoreContracts.BindingModels;
 using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.StoragesContracts;
-using OnlineStoreDatabaseImplement.Database;
-using OnlineStoreDatabaseImplement.Storages;
+using OnlineStoreContracts.SearchModels;
+using System.Security.Claims;
 
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllersWithViews();
-
-builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
+namespace OnlineStoreWeb.Controllers
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+    public class ProductController : Controller
+    {
+        private readonly IProductLogic _productLogic;
+        private readonly ICategoryLogic _categoryLogic;
+        private readonly ICartItemLogic _cartItemLogic;
 
-builder.Services.AddScoped<IUserStorage, UserStorage>();
-builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
-builder.Services.AddScoped<IProductStorage, ProductStorage>();
-builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
-builder.Services.AddScoped<IOrderStorage, OrderStorage>();
+        public ProductController(IProductLogic productLogic, ICategoryLogic categoryLogic, ICartItemLogic cartItemLogic)
+        {
+            _productLogic = productLogic;
+            _categoryLogic = categoryLogic;
+            _cartItemLogic = cartItemLogic;
+        }
 
-builder.Services.AddScoped<IUserLogic, UserLogic>();
-builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
-builder.Services.AddScoped<IProductLogic, ProductLogic>();
-builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
-builder.Services.AddScoped<IOrderLogic, OrderLogic>();
+        [HttpGet]
+        public IActionResult Index(string? searchText, int? categoryId, decimal? minPrice, decimal? maxPrice, int page = 1)
+        {
+            const int pageSize = 5;
 
-var app = builder.Build();
+            if (page < 1)
+            {
+                page = 1;
+            }
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+            var searchModel = new ProductSearchModel
+            {
+                SearchText = searchText,
+                CategoryId = categoryId,
+                MinPrice = minPrice,
+                MaxPrice = maxPrice,
+                Page = page,
+                PageSize = pageSize
+            };
+
+            var products = _productLogic.ReadList(searchModel);
+            var totalCount = _productLogic.GetCount(searchModel);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            ViewBag.SearchText = searchText;
+            ViewBag.CategoryId = categoryId;
+            ViewBag.MinPrice = minPrice;
+            ViewBag.MaxPrice = maxPrice;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+            ViewBag.TotalCount = totalCount;
+
+            FillCategoryViewBag();
+
+            return View(products);
+        }
+
+        [HttpGet]
+        public IActionResult Details(int id)
+        {
+            var product = _productLogic.ReadElement(new ProductSearchModel
+            {
+                Id = id
+            });
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            return View(product);
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpGet]
+        public IActionResult Create()
+        {
+            FillCategoryViewBag();
+            return View(new ProductBindingModel());
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(ProductBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                FillCategoryViewBag();
+                return View(model);
+            }
+
+            try
+            {
+                _productLogic.Create(model);
+                TempData["Message"] = "Товар успешно добавлен";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                FillCategoryViewBag();
+                return View(model);
+            }
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpGet]
+        public IActionResult Edit(int id)
+        {
+            var product = _productLogic.ReadElement(new ProductSearchModel
+            {
+                Id = id
+            });
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            var model = new ProductBindingModel
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                Quantity = product.Quantity,
+                CategoryId = product.CategoryId
+            };
+
+            FillCategoryViewBag();
+
+            return View(model);
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(ProductBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                FillCategoryViewBag();
+                return View(model);
+            }
+
+            try
+            {
+                _productLogic.Update(model);
+                TempData["Message"] = "Товар успешно изменен";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                FillCategoryViewBag();
+                return View(model);
+            }
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpGet]
+        public IActionResult Delete(int id)
+        {
+            var product = _productLogic.ReadElement(new ProductSearchModel
+            {
+                Id = id
+            });
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            return View(product);
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeleteConfirmed(int id)
+        {
+            try
+            {
+                _productLogic.Delete(new ProductBindingModel
+                {
+                    Id = id
+                });
+
+                TempData["Message"] = "Товар успешно удален";
+                return RedirectToAction(nameof(Index));
+            }
+            catch
+            {
+                var product = _productLogic.ReadElement(new ProductSearchModel
+                {
+                    Id = id
+                });
+
+                if (product == null)
+                {
+                    return NotFound();
+                }
+
+                ModelState.AddModelError(string.Empty, "Невозможно удалить товар, потому что он используется в корзинах или заказах");
+                return View("Delete", product);
+            }
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult AddToCart(int productId, int quantity = 1)
+        {
+            try
+            {
+                _cartItemLogic.AddToCart(new CartItemBindingModel
+                {
+                    UserId = GetCurrentUserId(),
+                    ProductId = productId,
+                    Quantity = quantity
+                });
+
+                TempData["Message"] = "Товар добавлен в корзину";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private void FillCategoryViewBag()
+        {
+            ViewBag.Categories = new SelectList(_categoryLogic.ReadList(null), "Id", "Name");
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return 0;
+            }
+
+            return int.Parse(userId);
+        }
+    }
 }
-
-using (var scope = app.Services.CreateScope())
-{
-    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
-    database.Database.Migrate();
-}
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-
-app.Run();
