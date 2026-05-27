@@ -1,52 +1,133 @@
-@model ProductBindingModel
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+using OnlineStoreBusinessLogic.Services;
+using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.BusinessLogicsContracts;
+using OnlineStoreContracts.SearchModels;
+using OnlineStoreDataModels.Enums;
+using System.Security.Claims;
 
-@{
-    ViewData["Title"] = "Добавление товара";
-}
+namespace OnlineStoreWeb.Controllers
+{
+    public class AccountController : Controller
+    {
+        private readonly IUserLogic _userLogic;
 
-<h2 class="mb-3">Добавление товара</h2>
+        public AccountController(IUserLogic userLogic)
+        {
+            _userLogic = userLogic;
+        }
 
-<form asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
+        [HttpGet]
+        public IActionResult Register()
+        {
+            return View(new UserBindingModel());
+        }
 
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Register(UserBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
 
-    <div class="mb-3">
-        <label asp-for="Name" class="form-label">Название</label>
-        <input asp-for="Name" class="form-control" />
-        <span asp-validation-for="Name" class="text-danger"></span>
-    </div>
+            try
+            {
+                model.PasswordHash = PasswordService.GetHash(model.Password);
+                model.Role = UserRole.Пользователь;
 
-    <div class="mb-3">
-        <label asp-for="Description" class="form-label">Описание</label>
-        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
+                _userLogic.Create(model);
 
-    <div class="mb-3">
-        <label asp-for="CategoryId" class="form-label">Категория</label>
-        <select asp-for="CategoryId" asp-items="ViewBag.Categories" class="form-select">
-            <option value="">Выберите категорию</option>
-        </select>
-        <span asp-validation-for="CategoryId" class="text-danger"></span>
-    </div>
+                TempData["Message"] = "Регистрация выполнена успешно. Теперь можно войти.";
+                return RedirectToAction(nameof(Login));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
+            }
+        }
 
-    <div class="mb-3">
-        <label asp-for="Price" class="form-label">Цена</label>
-        <input asp-for="Price" type="number" step="0.01" class="form-control" />
-        <span asp-validation-for="Price" class="text-danger"></span>
-    </div>
+        [HttpGet]
+        public IActionResult Login()
+        {
+            return View(new UserBindingModel());
+        }
 
-    <div class="mb-3">
-        <label asp-for="Quantity" class="form-label">Количество</label>
-        <input asp-for="Quantity" type="number" class="form-control" />
-        <span asp-validation-for="Quantity" class="text-danger"></span>
-    </div>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login(UserBindingModel model)
+        {
+            ModelState.Remove(nameof(model.Name));
+            ModelState.Remove(nameof(model.PasswordHash));
 
-    <button type="submit" class="btn btn-success">Сохранить</button>
-    <a asp-action="Index" class="btn btn-secondary">Назад</a>
-</form>
+            if (string.IsNullOrWhiteSpace(model.Login))
+            {
+                ModelState.AddModelError(nameof(model.Login), "Введите логин");
+            }
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+            if (string.IsNullOrWhiteSpace(model.Password))
+            {
+                ModelState.AddModelError(nameof(model.Password), "Введите пароль");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var passwordHash = PasswordService.GetHash(model.Password);
+
+            var user = _userLogic.ReadElement(new UserSearchModel
+            {
+                Login = model.Login,
+                PasswordHash = passwordHash
+            });
+
+            if (user == null)
+            {
+                ModelState.AddModelError(string.Empty, "Неверный логин или пароль");
+                return View(model);
+            }
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Name),
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim("Login", user.Login)
+            };
+
+            var claimsIdentity = new ClaimsIdentity(
+                claims,
+                CookieAuthenticationDefaults.AuthenticationScheme
+            );
+
+            var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                claimsPrincipal
+            );
+
+            return RedirectToAction("Index", "Product");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Index", "Product");
+        }
+
+        [HttpGet]
+        public IActionResult AccessDenied()
+        {
+            return View();
+        }
+    }
 }
