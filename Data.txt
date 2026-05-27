@@ -8,133 +8,30 @@ using OnlineStoreDatabaseImplement.Models;
 
 namespace OnlineStoreDatabaseImplement.Storages
 {
-    public class ProductStorage : IProductStorage
+    public class CartItemStorage : ICartItemStorage
     {
         private readonly OnlineStoreDatabase _context;
 
-        public ProductStorage(OnlineStoreDatabase context)
+        public CartItemStorage(OnlineStoreDatabase context)
         {
             _context = context;
         }
 
-        public List<ProductViewModel> GetFullList()
+        public List<CartItemViewModel> GetFullList()
         {
-            return _context.Products
-                .Include(x => x.Category)
-                .OrderBy(x => x.Name)
+            return _context.CartItems
+                .Include(x => x.User)
+                .Include(x => x.Product)
+                .OrderBy(x => x.Id)
                 .Select(x => x.GetViewModel)
                 .ToList();
         }
 
-        public List<ProductViewModel> GetFilteredList(ProductSearchModel model)
+        public List<CartItemViewModel> GetFilteredList(CartItemSearchModel model)
         {
-            IQueryable<Product> query = ApplyFilter(model)
-                .OrderBy(x => x.Name);
-
-            if (model.Page.HasValue && model.PageSize.HasValue)
-            {
-                query = query
-                    .Skip((model.Page.Value - 1) * model.PageSize.Value)
-                    .Take(model.PageSize.Value);
-            }
-
-            return query
-                .Select(x => x.GetViewModel)
-                .ToList();
-        }
-
-        public ProductViewModel? GetElement(ProductSearchModel model)
-        {
-            if (!model.Id.HasValue)
-            {
-                return null;
-            }
-
-            return _context.Products
-                .Include(x => x.Category)
-                .FirstOrDefault(x => x.Id == model.Id.Value)
-                ?.GetViewModel;
-        }
-
-        public int GetCount(ProductSearchModel? model)
-        {
-            if (model == null)
-            {
-                return _context.Products.Count();
-            }
-
-            return ApplyFilter(model).Count();
-        }
-
-        public ProductViewModel? Insert(ProductBindingModel model)
-        {
-            var product = Product.Create(model);
-            _context.Products.Add(product);
-            _context.SaveChanges();
-
-            return GetElement(new ProductSearchModel
-            {
-                Id = product.Id
-            });
-        }
-
-        public ProductViewModel? Update(ProductBindingModel model)
-        {
-            var product = _context.Products.FirstOrDefault(x => x.Id == model.Id);
-
-            if (product == null)
-            {
-                return null;
-            }
-
-            product.Update(model);
-            _context.SaveChanges();
-
-            return GetElement(new ProductSearchModel
-            {
-                Id = product.Id
-            });
-        }
-
-        public ProductViewModel? Delete(ProductBindingModel model)
-        {
-            var product = _context.Products.FirstOrDefault(x => x.Id == model.Id);
-
-            if (product == null)
-            {
-                return null;
-            }
-
-            _context.Products.Remove(product);
-            _context.SaveChanges();
-
-            return product.GetViewModel;
-        }
-
-        public bool DecreaseQuantity(int productId, int quantity)
-        {
-            var product = _context.Products.FirstOrDefault(x => x.Id == productId);
-
-            if (product == null)
-            {
-                return false;
-            }
-
-            if (product.Quantity < quantity)
-            {
-                return false;
-            }
-
-            product.Quantity -= quantity;
-            _context.SaveChanges();
-
-            return true;
-        }
-
-        private IQueryable<Product> ApplyFilter(ProductSearchModel model)
-        {
-            var query = _context.Products
-                .Include(x => x.Category)
+            var query = _context.CartItems
+                .Include(x => x.User)
+                .Include(x => x.Product)
                 .AsQueryable();
 
             if (model.Id.HasValue)
@@ -142,31 +39,101 @@ namespace OnlineStoreDatabaseImplement.Storages
                 query = query.Where(x => x.Id == model.Id.Value);
             }
 
-            if (model.CategoryId.HasValue)
+            if (model.UserId.HasValue)
             {
-                query = query.Where(x => x.CategoryId == model.CategoryId.Value);
+                query = query.Where(x => x.UserId == model.UserId.Value);
             }
 
-            if (!string.IsNullOrWhiteSpace(model.SearchText))
+            if (model.ProductId.HasValue)
             {
-                var searchText = model.SearchText.ToLower();
-
-                query = query.Where(x =>
-                    x.Name.ToLower().Contains(searchText) ||
-                    (x.Description != null && x.Description.ToLower().Contains(searchText)));
+                query = query.Where(x => x.ProductId == model.ProductId.Value);
             }
 
-            if (model.MinPrice.HasValue)
+            return query
+                .OrderBy(x => x.Id)
+                .Select(x => x.GetViewModel)
+                .ToList();
+        }
+
+        public CartItemViewModel? GetElement(CartItemSearchModel model)
+        {
+            var query = _context.CartItems
+                .Include(x => x.User)
+                .Include(x => x.Product)
+                .AsQueryable();
+
+            if (model.Id.HasValue)
             {
-                query = query.Where(x => x.Price >= model.MinPrice.Value);
+                return query
+                    .FirstOrDefault(x => x.Id == model.Id.Value)
+                    ?.GetViewModel;
             }
 
-            if (model.MaxPrice.HasValue)
+            if (model.UserId.HasValue && model.ProductId.HasValue)
             {
-                query = query.Where(x => x.Price <= model.MaxPrice.Value);
+                return query
+                    .FirstOrDefault(x => x.UserId == model.UserId.Value && x.ProductId == model.ProductId.Value)
+                    ?.GetViewModel;
             }
 
-            return query;
+            return null;
+        }
+
+        public CartItemViewModel? Insert(CartItemBindingModel model)
+        {
+            var cartItem = CartItem.Create(model);
+            _context.CartItems.Add(cartItem);
+            _context.SaveChanges();
+
+            return GetElement(new CartItemSearchModel
+            {
+                Id = cartItem.Id
+            });
+        }
+
+        public CartItemViewModel? Update(CartItemBindingModel model)
+        {
+            var cartItem = _context.CartItems.FirstOrDefault(x => x.Id == model.Id);
+
+            if (cartItem == null)
+            {
+                return null;
+            }
+
+            cartItem.Update(model);
+            _context.SaveChanges();
+
+            return GetElement(new CartItemSearchModel
+            {
+                Id = cartItem.Id
+            });
+        }
+
+        public CartItemViewModel? Delete(CartItemBindingModel model)
+        {
+            var cartItem = _context.CartItems.FirstOrDefault(x => x.Id == model.Id);
+
+            if (cartItem == null)
+            {
+                return null;
+            }
+
+            _context.CartItems.Remove(cartItem);
+            _context.SaveChanges();
+
+            return cartItem.GetViewModel;
+        }
+
+        public bool ClearCart(int userId)
+        {
+            var cartItems = _context.CartItems
+                .Where(x => x.UserId == userId)
+                .ToList();
+
+            _context.CartItems.RemoveRange(cartItems);
+            _context.SaveChanges();
+
+            return true;
         }
     }
 }
