@@ -1,31 +1,145 @@
-@model OrderBindingModel
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.BusinessLogicsContracts;
+using OnlineStoreContracts.SearchModels;
 
-@{
-    ViewData["Title"] = "Изменение статуса заказа";
-}
+namespace OnlineStoreWeb.Controllers
+{
+    [Authorize(Roles = "Администратор")]
+    public class CategoryController : Controller
+    {
+        private readonly ICategoryLogic _categoryLogic;
 
-<h2 class="mb-3">Изменение статуса заказа №@Model.Id</h2>
+        public CategoryController(ICategoryLogic categoryLogic)
+        {
+            _categoryLogic = categoryLogic;
+        }
 
-<form asp-action="Edit" method="post">
-    @Html.AntiForgeryToken()
+        [HttpGet]
+        public IActionResult Index(string? searchText)
+        {
+            var categories = _categoryLogic.ReadList(new CategorySearchModel
+            {
+                SearchText = searchText
+            });
 
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="UserId" />
-    <input type="hidden" asp-for="CreatedDate" />
-    <input type="hidden" asp-for="TotalPrice" />
+            ViewBag.SearchText = searchText;
 
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            return View(categories);
+        }
 
-    <div class="mb-3">
-        <label asp-for="Status" class="form-label">Статус заказа</label>
-        <select asp-for="Status" asp-items="ViewBag.Statuses" class="form-select"></select>
-        <span asp-validation-for="Status" class="text-danger"></span>
-    </div>
+        [HttpGet]
+        public IActionResult Create()
+        {
+            return View(new CategoryBindingModel());
+        }
 
-    <button type="submit" class="btn btn-success">Сохранить</button>
-    <a asp-action="Index" class="btn btn-secondary">Назад</a>
-</form>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(CategoryBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+            try
+            {
+                _categoryLogic.Create(model);
+                TempData["Message"] = "Категория успешно добавлена";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
+            }
+        }
+
+        [HttpGet]
+        public IActionResult Edit(int id)
+        {
+            var category = _categoryLogic.ReadElement(new CategorySearchModel
+            {
+                Id = id
+            });
+
+            if (category == null)
+            {
+                return NotFound();
+            }
+
+            var model = new CategoryBindingModel
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Description = category.Description
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(CategoryBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            try
+            {
+                _categoryLogic.Update(model);
+                TempData["Message"] = "Категория успешно изменена";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
+            }
+        }
+
+        [HttpGet]
+        public IActionResult Delete(int id)
+        {
+            var category = _categoryLogic.ReadElement(new CategorySearchModel
+            {
+                Id = id
+            });
+
+            if (category == null)
+            {
+                return NotFound();
+            }
+
+            var model = new CategoryBindingModel
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Description = category.Description
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Delete(CategoryBindingModel model)
+        {
+            try
+            {
+                _categoryLogic.Delete(model);
+                TempData["Message"] = "Категория успешно удалена";
+                return RedirectToAction(nameof(Index));
+            }
+            catch
+            {
+                ModelState.AddModelError(string.Empty, "Невозможно удалить категорию, потому что она используется в товарах");
+                return View(model);
+            }
+        }
+    }
 }
