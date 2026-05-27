@@ -1,6 +1,126 @@
-<div id="pageLoader" style="display:none;" class="position-fixed top-0 start-0 w-100 h-100 bg-white bg-opacity-75 justify-content-center align-items-center">
-    <div class="text-center">
-        <div class="spinner-border" role="status"></div>
-        <div class="mt-2">Загрузка...</div>
-    </div>
-</div>
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.BusinessLogicsContracts;
+using OnlineStoreContracts.SearchModels;
+using System.Security.Claims;
+
+namespace OnlineStoreWeb.Controllers
+{
+    [Authorize]
+    public class CartController : Controller
+    {
+        private readonly ICartItemLogic _cartItemLogic;
+        private readonly IOrderLogic _orderLogic;
+
+        public CartController(ICartItemLogic cartItemLogic, IOrderLogic orderLogic)
+        {
+            _cartItemLogic = cartItemLogic;
+            _orderLogic = orderLogic;
+        }
+
+        [HttpGet]
+        public IActionResult Index()
+        {
+            var userId = GetCurrentUserId();
+
+            var cartItems = _cartItemLogic.ReadList(new CartItemSearchModel
+            {
+                UserId = userId
+            });
+
+            ViewBag.TotalPrice = _cartItemLogic.GetCartTotal(userId);
+
+            return View(cartItems);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult UpdateQuantity(int id, int quantity)
+        {
+            try
+            {
+                _cartItemLogic.UpdateQuantity(new CartItemBindingModel
+                {
+                    Id = id,
+                    Quantity = quantity
+                });
+
+                TempData["Message"] = "Количество товара изменено";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Delete(int id)
+        {
+            try
+            {
+                _cartItemLogic.Delete(new CartItemBindingModel
+                {
+                    Id = id
+                });
+
+                TempData["Message"] = "Товар удален из корзины";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Clear()
+        {
+            try
+            {
+                _cartItemLogic.ClearCart(GetCurrentUserId());
+                TempData["Message"] = "Корзина очищена";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Checkout()
+        {
+            try
+            {
+                _orderLogic.Checkout(GetCurrentUserId());
+                TempData["Message"] = "Заказ успешно оформлен";
+                return RedirectToAction("Index", "Order");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return 0;
+            }
+
+            return int.Parse(userId);
+        }
+    }
+}
