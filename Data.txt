@@ -1,21 +1,68 @@
-@{
-    ViewData["Title"] = "Ошибка";
-    int code = ViewBag.Code ?? 0;
-    string message = ViewBag.Message ?? "Произошла ошибка";
-    string? details = ViewBag.Details as string;
-}
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+using OnlineStoreBusinessLogic.BusinessLogics;
+using OnlineStoreContracts.BusinessLogicsContracts;
+using OnlineStoreContracts.StoragesContracts;
+using OnlineStoreDatabaseImplement.Database;
+using OnlineStoreDatabaseImplement.Storages;
 
-<h2 class="mb-3">Ошибка @code</h2>
+var builder = WebApplication.CreateBuilder(args);
 
-<div class="alert alert-danger">
-    @message
-</div>
+builder.Services.AddControllersWithViews();
 
-@if (!string.IsNullOrWhiteSpace(details))
+builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
 {
-    <div class="alert alert-secondary">
-        @details
-    </div>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(2);
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<IUserStorage, UserStorage>();
+builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
+builder.Services.AddScoped<IProductStorage, ProductStorage>();
+builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
+builder.Services.AddScoped<IOrderStorage, OrderStorage>();
+
+builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
+builder.Services.AddScoped<IProductLogic, ProductLogic>();
+builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
+builder.Services.AddScoped<IOrderLogic, OrderLogic>();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error/Exception");
+    app.UseHsts();
 }
 
-<a asp-controller="Product" asp-action="Index" class="btn btn-primary">К товарам</a>
+using (var scope = app.Services.CreateScope())
+{
+    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
+    database.Database.Migrate();
+}
+
+app.UseStatusCodePagesWithReExecute("/Error/StatusCode", "?code={0}");
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Product}/{action=Index}/{id?}");
+
+app.Run();
