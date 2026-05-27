@@ -1,39 +1,11 @@
-@model UserBindingModel
-
 @{
-    ViewData["Title"] = "Вход";
+    ViewData["Title"] = "Доступ запрещен";
 }
 
-<h2 class="mb-3">Вход</h2>
+<h2 class="mb-3">Доступ запрещен</h2>
 
-@if (TempData["Message"] != null)
-{
-    <div class="alert alert-success">
-        @TempData["Message"]
-    </div>
-}
+<div class="alert alert-danger">
+    У вас нет прав для выполнения этого действия.
+</div>
 
-<form asp-action="Login" method="post">
-    @Html.AntiForgeryToken()
-
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-    <div class="mb-3">
-        <label asp-for="Login" class="form-label">Логин</label>
-        <input asp-for="Login" class="form-control" />
-        <span asp-validation-for="Login" class="text-danger"></span>
-    </div>
-
-    <div class="mb-3">
-        <label asp-for="Password" class="form-label">Пароль</label>
-        <input asp-for="Password" type="password" class="form-control" />
-        <span asp-validation-for="Password" class="text-danger"></span>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Войти</button>
-    <a asp-action="Register" class="btn btn-secondary">Регистрация</a>
-</form>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
+<a asp-controller="Product" asp-action="Index" class="btn btn-secondary">К товарам</a>
