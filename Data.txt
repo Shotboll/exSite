@@ -1,66 +1,38 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
-using OnlineStoreBusinessLogic.BusinessLogics;
-using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.StoragesContracts;
-using OnlineStoreDatabaseImplement.Database;
-using OnlineStoreDatabaseImplement.Storages;
+@model UserBindingModel
 
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllersWithViews();
-
-builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
-{
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromHours(2);
-    });
-
-builder.Services.AddAuthorization();
-
-builder.Services.AddScoped<IUserStorage, UserStorage>();
-builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
-builder.Services.AddScoped<IProductStorage, ProductStorage>();
-builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
-builder.Services.AddScoped<IOrderStorage, OrderStorage>();
-
-builder.Services.AddScoped<IUserLogic, UserLogic>();
-builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
-builder.Services.AddScoped<IProductLogic, ProductLogic>();
-builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
-builder.Services.AddScoped<IOrderLogic, OrderLogic>();
-
-var app = builder.Build();
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+@{
+    ViewData["Title"] = "Регистрация";
 }
 
-using (var scope = app.Services.CreateScope())
-{
-    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
-    database.Database.Migrate();
+<h2 class="mb-3">Регистрация</h2>
+
+<form asp-action="Register" method="post">
+    @Html.AntiForgeryToken()
+
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="Login" class="form-label">Логин</label>
+        <input asp-for="Login" class="form-control" />
+        <span asp-validation-for="Login" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label">Имя</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label">Пароль</label>
+        <input asp-for="Password" type="password" class="form-control" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Зарегистрироваться</button>
+    <a asp-action="Login" class="btn btn-secondary">Войти</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
 }
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Product}/{action=Index}/{id?}");
-
-app.Run();
