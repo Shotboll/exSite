@@ -1,159 +1,54 @@
-using OnlineStoreContracts.BindingModels;
+using Microsoft.EntityFrameworkCore;
+using OnlineStoreBusinessLogic.BusinessLogics;
 using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.SearchModels;
 using OnlineStoreContracts.StoragesContracts;
-using OnlineStoreContracts.ViewModels;
+using OnlineStoreDatabaseImplement.Database;
+using OnlineStoreDatabaseImplement.Storages;
 
-namespace OnlineStoreBusinessLogic.BusinessLogics
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
 {
-    public class OrderLogic : IOrderLogic
-    {
-        private readonly IOrderStorage _orderStorage;
-        private readonly IUserStorage _userStorage;
-        private readonly ICartItemStorage _cartItemStorage;
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
 
-        public OrderLogic(IOrderStorage orderStorage, IUserStorage userStorage, ICartItemStorage cartItemStorage)
-        {
-            _orderStorage = orderStorage;
-            _userStorage = userStorage;
-            _cartItemStorage = cartItemStorage;
-        }
+builder.Services.AddScoped<IUserStorage, UserStorage>();
+builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
+builder.Services.AddScoped<IProductStorage, ProductStorage>();
+builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
+builder.Services.AddScoped<IOrderStorage, OrderStorage>();
 
-        public List<OrderViewModel> ReadList(OrderSearchModel? model)
-        {
-            if (model == null)
-            {
-                return _orderStorage.GetFullList();
-            }
+builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
+builder.Services.AddScoped<IProductLogic, ProductLogic>();
+builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
+builder.Services.AddScoped<IOrderLogic, OrderLogic>();
 
-            return _orderStorage.GetFilteredList(model);
-        }
+var app = builder.Build();
 
-        public OrderViewModel? ReadElement(OrderSearchModel model)
-        {
-            if (model == null)
-            {
-                throw new ArgumentNullException(nameof(model));
-            }
-
-            return _orderStorage.GetElement(model);
-        }
-
-        public int GetCount(OrderSearchModel? model)
-        {
-            return _orderStorage.GetCount(model);
-        }
-
-        public bool Create(OrderBindingModel model)
-        {
-            CheckModel(model);
-
-            var result = _orderStorage.Insert(model);
-            return result != null;
-        }
-
-        public bool Update(OrderBindingModel model)
-        {
-            if (model == null)
-            {
-                throw new ArgumentNullException(nameof(model));
-            }
-
-            if (model.Id <= 0)
-            {
-                throw new InvalidOperationException("Некорректный идентификатор заказа");
-            }
-
-            var existingOrder = _orderStorage.GetElement(new OrderSearchModel
-            {
-                Id = model.Id
-            });
-
-            if (existingOrder == null)
-            {
-                throw new InvalidOperationException("Заказ не найден");
-            }
-
-            model.UserId = existingOrder.UserId;
-            model.CreatedDate = existingOrder.CreatedDate;
-            model.TotalPrice = existingOrder.TotalPrice;
-
-            var result = _orderStorage.Update(model);
-            return result != null;
-        }
-
-        public bool Delete(OrderBindingModel model)
-        {
-            if (model == null)
-            {
-                throw new ArgumentNullException(nameof(model));
-            }
-
-            if (model.Id <= 0)
-            {
-                throw new InvalidOperationException("Некорректный идентификатор заказа");
-            }
-
-            var result = _orderStorage.Delete(model);
-            return result != null;
-        }
-
-        public bool Checkout(int userId)
-        {
-            if (userId <= 0)
-            {
-                throw new InvalidOperationException("Пользователь не указан");
-            }
-
-            var user = _userStorage.GetElement(new UserSearchModel
-            {
-                Id = userId
-            });
-
-            if (user == null)
-            {
-                throw new InvalidOperationException("Пользователь не найден");
-            }
-
-            var cartItems = _cartItemStorage.GetFilteredList(new CartItemSearchModel
-            {
-                UserId = userId
-            });
-
-            if (cartItems.Count == 0)
-            {
-                throw new InvalidOperationException("Корзина пуста");
-            }
-
-            return _orderStorage.Checkout(userId);
-        }
-
-        private void CheckModel(OrderBindingModel model)
-        {
-            if (model == null)
-            {
-                throw new ArgumentNullException(nameof(model));
-            }
-
-            if (model.UserId <= 0)
-            {
-                throw new InvalidOperationException("Пользователь заказа не указан");
-            }
-
-            var user = _userStorage.GetElement(new UserSearchModel
-            {
-                Id = model.UserId
-            });
-
-            if (user == null)
-            {
-                throw new InvalidOperationException("Пользователь не найден");
-            }
-
-            if (model.TotalPrice < 0)
-            {
-                throw new InvalidOperationException("Сумма заказа не может быть отрицательной");
-            }
-        }
-    }
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
 }
+
+using (var scope = app.Services.CreateScope())
+{
+    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
+    database.Database.Migrate();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();
