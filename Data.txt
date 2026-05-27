@@ -1,133 +1,66 @@
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Mvc;
-using OnlineStoreBusinessLogic.Services;
-using OnlineStoreContracts.BindingModels;
+using Microsoft.EntityFrameworkCore;
+using OnlineStoreBusinessLogic.BusinessLogics;
 using OnlineStoreContracts.BusinessLogicsContracts;
-using OnlineStoreContracts.SearchModels;
-using OnlineStoreDataModels.Enums;
-using System.Security.Claims;
+using OnlineStoreContracts.StoragesContracts;
+using OnlineStoreDatabaseImplement.Database;
+using OnlineStoreDatabaseImplement.Storages;
 
-namespace OnlineStoreWeb.Controllers
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddDbContext<OnlineStoreDatabase>(options =>
 {
-    public class AccountController : Controller
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
     {
-        private readonly IUserLogic _userLogic;
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(2);
+    });
 
-        public AccountController(IUserLogic userLogic)
-        {
-            _userLogic = userLogic;
-        }
+builder.Services.AddAuthorization();
 
-        [HttpGet]
-        public IActionResult Register()
-        {
-            return View(new UserBindingModel());
-        }
+builder.Services.AddScoped<IUserStorage, UserStorage>();
+builder.Services.AddScoped<ICategoryStorage, CategoryStorage>();
+builder.Services.AddScoped<IProductStorage, ProductStorage>();
+builder.Services.AddScoped<ICartItemStorage, CartItemStorage>();
+builder.Services.AddScoped<IOrderStorage, OrderStorage>();
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Register(UserBindingModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
+builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<ICategoryLogic, CategoryLogic>();
+builder.Services.AddScoped<IProductLogic, ProductLogic>();
+builder.Services.AddScoped<ICartItemLogic, CartItemLogic>();
+builder.Services.AddScoped<IOrderLogic, OrderLogic>();
 
-            try
-            {
-                model.PasswordHash = PasswordService.GetHash(model.Password);
-                model.Role = UserRole.Пользователь;
+var app = builder.Build();
 
-                _userLogic.Create(model);
-
-                TempData["Message"] = "Регистрация выполнена успешно. Теперь можно войти.";
-                return RedirectToAction(nameof(Login));
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                return View(model);
-            }
-        }
-
-        [HttpGet]
-        public IActionResult Login()
-        {
-            return View(new UserBindingModel());
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(UserBindingModel model)
-        {
-            ModelState.Remove(nameof(model.Name));
-            ModelState.Remove(nameof(model.PasswordHash));
-
-            if (string.IsNullOrWhiteSpace(model.Login))
-            {
-                ModelState.AddModelError(nameof(model.Login), "Введите логин");
-            }
-
-            if (string.IsNullOrWhiteSpace(model.Password))
-            {
-                ModelState.AddModelError(nameof(model.Password), "Введите пароль");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
-            var passwordHash = PasswordService.GetHash(model.Password);
-
-            var user = _userLogic.ReadElement(new UserSearchModel
-            {
-                Login = model.Login,
-                PasswordHash = passwordHash
-            });
-
-            if (user == null)
-            {
-                ModelState.AddModelError(string.Empty, "Неверный логин или пароль");
-                return View(model);
-            }
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Name),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
-                new Claim("Login", user.Login)
-            };
-
-            var claimsIdentity = new ClaimsIdentity(
-                claims,
-                CookieAuthenticationDefaults.AuthenticationScheme
-            );
-
-            var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-            await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                claimsPrincipal
-            );
-
-            return RedirectToAction("Index", "Product");
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Logout()
-        {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction("Index", "Product");
-        }
-
-        [HttpGet]
-        public IActionResult AccessDenied()
-        {
-            return View();
-        }
-    }
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
 }
+
+using (var scope = app.Services.CreateScope())
+{
+    var database = scope.ServiceProvider.GetRequiredService<OnlineStoreDatabase>();
+    database.Database.Migrate();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Product}/{action=Index}/{id?}");
+
+app.Run();
