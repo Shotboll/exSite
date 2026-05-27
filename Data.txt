@@ -1,92 +1,153 @@
-@model List<CartItemViewModel>
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using OnlineStoreContracts.BindingModels;
+using OnlineStoreContracts.BusinessLogicsContracts;
+using OnlineStoreContracts.SearchModels;
+using OnlineStoreDataModels.Enums;
+using System.Security.Claims;
 
-@{
-    ViewData["Title"] = "Корзина";
-    decimal totalPrice = ViewBag.TotalPrice ?? 0;
-}
-
-<h2 class="mb-3">Корзина</h2>
-
-@if (TempData["Message"] != null)
+namespace OnlineStoreWeb.Controllers
 {
-    <div class="alert alert-success">
-        @TempData["Message"]
-    </div>
-}
+    [Authorize]
+    public class OrderController : Controller
+    {
+        private readonly IOrderLogic _orderLogic;
 
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger">
-        @TempData["Error"]
-    </div>
-}
+        public OrderController(IOrderLogic orderLogic)
+        {
+            _orderLogic = orderLogic;
+        }
 
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info">
-        Корзина пуста.
-    </div>
+        [HttpGet]
+        public IActionResult Index(int? status, int page = 1)
+        {
+            const int pageSize = 5;
 
-    <a asp-controller="Product" asp-action="Index" class="btn btn-primary">Перейти к товарам</a>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-bordered table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Товар</th>
-                    <th>Цена</th>
-                    <th>Количество</th>
-                    <th>Сумма</th>
-                    <th style="width: 250px;">Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in Model)
-                {
-                    <tr>
-                        <td>@item.ProductName</td>
-                        <td>@item.ProductPrice.ToString("0.00")</td>
-                        <td>
-                            <form asp-action="UpdateQuantity" method="post" class="d-flex gap-2">
-                                @Html.AntiForgeryToken()
+            if (page < 1)
+            {
+                page = 1;
+            }
 
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <input type="number" name="quantity" value="@item.Quantity" min="1" class="form-control" style="max-width: 100px;" />
+            var searchModel = new OrderSearchModel
+            {
+                Status = status.HasValue ? (OrderStatus)status.Value : null,
+                Page = page,
+                PageSize = pageSize
+            };
 
-                                <button type="submit" class="btn btn-sm btn-warning">Обновить</button>
-                            </form>
-                        </td>
-                        <td>@item.TotalPrice.ToString("0.00")</td>
-                        <td>
-                            <form asp-action="Delete" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
+            if (!IsAdmin())
+            {
+                searchModel.UserId = GetCurrentUserId();
+            }
 
-                                <input type="hidden" name="id" value="@item.Id" />
+            var orders = _orderLogic.ReadList(searchModel);
+            var totalCount = _orderLogic.GetCount(searchModel);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-                                <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+            ViewBag.Status = status;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+            ViewBag.TotalCount = totalCount;
+            ViewBag.IsAdmin = IsAdmin();
 
-    <h4 class="mb-3">Итого: @totalPrice.ToString("0.00")</h4>
+            return View(orders);
+        }
 
-    <div class="d-flex gap-2">
-        <a asp-controller="Product" asp-action="Index" class="btn btn-secondary">Продолжить покупки</a>
+        [HttpGet]
+        public IActionResult Details(int id)
+        {
+            var order = _orderLogic.ReadElement(new OrderSearchModel
+            {
+                Id = id
+            });
 
-        <form asp-action="Checkout" method="post">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-success">Оформить заказ</button>
-        </form>
+            if (order == null)
+            {
+                return NotFound();
+            }
 
-        <form asp-action="Clear" method="post">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-danger">Очистить корзину</button>
-        </form>
-    </div>
+            if (!CanAccessOrder(order.UserId))
+            {
+                return Forbid();
+            }
+
+            return View(order);
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpGet]
+        public IActionResult Edit(int id)
+        {
+            var order = _orderLogic.ReadElement(new OrderSearchModel
+            {
+                Id = id
+            });
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            var model = new OrderBindingModel
+            {
+                Id = order.Id,
+                UserId = order.UserId,
+                CreatedDate = order.CreatedDate,
+                Status = order.Status,
+                TotalPrice = order.TotalPrice
+            };
+
+            ViewBag.Statuses = new SelectList(Enum.GetValues<OrderStatus>());
+
+            return View(model);
+        }
+
+        [Authorize(Roles = "Администратор")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(OrderBindingModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Statuses = new SelectList(Enum.GetValues<OrderStatus>());
+                return View(model);
+            }
+
+            try
+            {
+                _orderLogic.Update(model);
+                TempData["Message"] = "Статус заказа успешно изменен";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                ViewBag.Statuses = new SelectList(Enum.GetValues<OrderStatus>());
+                return View(model);
+            }
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return 0;
+            }
+
+            return int.Parse(userId);
+        }
+
+        private bool IsAdmin()
+        {
+            return User.IsInRole(UserRole.Администратор.ToString());
+        }
+
+        private bool CanAccessOrder(int orderUserId)
+        {
+            return IsAdmin() || orderUserId == GetCurrentUserId();
+        }
+    }
 }
