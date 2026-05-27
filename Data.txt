@@ -6,90 +6,53 @@ using OnlineStoreContracts.ViewModels;
 
 namespace OnlineStoreBusinessLogic.BusinessLogics
 {
-    public class CartItemLogic : ICartItemLogic
+    public class OrderLogic : IOrderLogic
     {
-        private readonly ICartItemStorage _cartItemStorage;
-        private readonly IProductStorage _productStorage;
+        private readonly IOrderStorage _orderStorage;
         private readonly IUserStorage _userStorage;
+        private readonly ICartItemStorage _cartItemStorage;
 
-        public CartItemLogic(ICartItemStorage cartItemStorage, IProductStorage productStorage, IUserStorage userStorage)
+        public OrderLogic(IOrderStorage orderStorage, IUserStorage userStorage, ICartItemStorage cartItemStorage)
         {
-            _cartItemStorage = cartItemStorage;
-            _productStorage = productStorage;
+            _orderStorage = orderStorage;
             _userStorage = userStorage;
+            _cartItemStorage = cartItemStorage;
         }
 
-        public List<CartItemViewModel> ReadList(CartItemSearchModel? model)
+        public List<OrderViewModel> ReadList(OrderSearchModel? model)
         {
             if (model == null)
             {
-                return _cartItemStorage.GetFullList();
+                return _orderStorage.GetFullList();
             }
 
-            return _cartItemStorage.GetFilteredList(model);
+            return _orderStorage.GetFilteredList(model);
         }
 
-        public CartItemViewModel? ReadElement(CartItemSearchModel model)
+        public OrderViewModel? ReadElement(OrderSearchModel model)
         {
             if (model == null)
             {
                 throw new ArgumentNullException(nameof(model));
             }
 
-            return _cartItemStorage.GetElement(model);
+            return _orderStorage.GetElement(model);
         }
 
-        public bool AddToCart(CartItemBindingModel model)
+        public int GetCount(OrderSearchModel? model)
+        {
+            return _orderStorage.GetCount(model);
+        }
+
+        public bool Create(OrderBindingModel model)
         {
             CheckModel(model);
 
-            var product = _productStorage.GetElement(new ProductSearchModel
-            {
-                Id = model.ProductId
-            });
-
-            if (product == null)
-            {
-                throw new InvalidOperationException("Товар не найден");
-            }
-
-            var existingCartItem = _cartItemStorage.GetElement(new CartItemSearchModel
-            {
-                UserId = model.UserId,
-                ProductId = model.ProductId
-            });
-
-            var newQuantity = model.Quantity;
-
-            if (existingCartItem != null)
-            {
-                newQuantity += existingCartItem.Quantity;
-            }
-
-            if (product.Quantity < newQuantity)
-            {
-                throw new InvalidOperationException("Недостаточно товара на складе");
-            }
-
-            if (existingCartItem != null)
-            {
-                var updatedCartItem = new CartItemBindingModel
-                {
-                    Id = existingCartItem.Id,
-                    UserId = existingCartItem.UserId,
-                    ProductId = existingCartItem.ProductId,
-                    Quantity = newQuantity
-                };
-
-                var updateResult = _cartItemStorage.Update(updatedCartItem);
-                return updateResult != null;
-            }
-
-            var insertResult = _cartItemStorage.Insert(model);
-            return insertResult != null;
+            var result = _orderStorage.Insert(model);
+            return result != null;
         }
 
-        public bool UpdateQuantity(CartItemBindingModel model)
+        public bool Update(OrderBindingModel model)
         {
             if (model == null)
             {
@@ -98,47 +61,28 @@ namespace OnlineStoreBusinessLogic.BusinessLogics
 
             if (model.Id <= 0)
             {
-                throw new InvalidOperationException("Некорректный идентификатор позиции корзины");
+                throw new InvalidOperationException("Некорректный идентификатор заказа");
             }
 
-            if (model.Quantity <= 0)
-            {
-                throw new InvalidOperationException("Количество должно быть больше 0");
-            }
-
-            var existingCartItem = _cartItemStorage.GetElement(new CartItemSearchModel
+            var existingOrder = _orderStorage.GetElement(new OrderSearchModel
             {
                 Id = model.Id
             });
 
-            if (existingCartItem == null)
+            if (existingOrder == null)
             {
-                throw new InvalidOperationException("Позиция корзины не найдена");
+                throw new InvalidOperationException("Заказ не найден");
             }
 
-            var product = _productStorage.GetElement(new ProductSearchModel
-            {
-                Id = existingCartItem.ProductId
-            });
+            model.UserId = existingOrder.UserId;
+            model.CreatedDate = existingOrder.CreatedDate;
+            model.TotalPrice = existingOrder.TotalPrice;
 
-            if (product == null)
-            {
-                throw new InvalidOperationException("Товар не найден");
-            }
-
-            if (product.Quantity < model.Quantity)
-            {
-                throw new InvalidOperationException("Недостаточно товара на складе");
-            }
-
-            model.UserId = existingCartItem.UserId;
-            model.ProductId = existingCartItem.ProductId;
-
-            var result = _cartItemStorage.Update(model);
+            var result = _orderStorage.Update(model);
             return result != null;
         }
 
-        public bool Delete(CartItemBindingModel model)
+        public bool Delete(OrderBindingModel model)
         {
             if (model == null)
             {
@@ -147,28 +91,28 @@ namespace OnlineStoreBusinessLogic.BusinessLogics
 
             if (model.Id <= 0)
             {
-                throw new InvalidOperationException("Некорректный идентификатор позиции корзины");
+                throw new InvalidOperationException("Некорректный идентификатор заказа");
             }
 
-            var result = _cartItemStorage.Delete(model);
+            var result = _orderStorage.Delete(model);
             return result != null;
         }
 
-        public bool ClearCart(int userId)
+        public bool Checkout(int userId)
         {
             if (userId <= 0)
             {
                 throw new InvalidOperationException("Пользователь не указан");
             }
 
-            return _cartItemStorage.ClearCart(userId);
-        }
-
-        public decimal GetCartTotal(int userId)
-        {
-            if (userId <= 0)
+            var user = _userStorage.GetElement(new UserSearchModel
             {
-                throw new InvalidOperationException("Пользователь не указан");
+                Id = userId
+            });
+
+            if (user == null)
+            {
+                throw new InvalidOperationException("Пользователь не найден");
             }
 
             var cartItems = _cartItemStorage.GetFilteredList(new CartItemSearchModel
@@ -176,10 +120,15 @@ namespace OnlineStoreBusinessLogic.BusinessLogics
                 UserId = userId
             });
 
-            return cartItems.Sum(x => x.TotalPrice);
+            if (cartItems.Count == 0)
+            {
+                throw new InvalidOperationException("Корзина пуста");
+            }
+
+            return _orderStorage.Checkout(userId);
         }
 
-        private void CheckModel(CartItemBindingModel model)
+        private void CheckModel(OrderBindingModel model)
         {
             if (model == null)
             {
@@ -188,17 +137,7 @@ namespace OnlineStoreBusinessLogic.BusinessLogics
 
             if (model.UserId <= 0)
             {
-                throw new InvalidOperationException("Пользователь не указан");
-            }
-
-            if (model.ProductId <= 0)
-            {
-                throw new InvalidOperationException("Товар не выбран");
-            }
-
-            if (model.Quantity <= 0)
-            {
-                throw new InvalidOperationException("Количество должно быть больше 0");
+                throw new InvalidOperationException("Пользователь заказа не указан");
             }
 
             var user = _userStorage.GetElement(new UserSearchModel
@@ -211,14 +150,9 @@ namespace OnlineStoreBusinessLogic.BusinessLogics
                 throw new InvalidOperationException("Пользователь не найден");
             }
 
-            var product = _productStorage.GetElement(new ProductSearchModel
+            if (model.TotalPrice < 0)
             {
-                Id = model.ProductId
-            });
-
-            if (product == null)
-            {
-                throw new InvalidOperationException("Товар не найден");
+                throw new InvalidOperationException("Сумма заказа не может быть отрицательной");
             }
         }
     }
